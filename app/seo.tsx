@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import siteMetadata from '@/data/siteMetadata'
+import { generateImgurUrl } from '../components/ImgurImage'
 
 interface PageSEOProps {
   title: string
@@ -17,14 +18,18 @@ export function genPageMetadata({ title, description, image, ...rest }: PageSEOP
       description: description || siteMetadata.description,
       url: './',
       siteName: siteMetadata.title,
-      images: image ? [image] : [siteMetadata.socialBanner],
+      images: image
+        ? [generateImgurUrl({ imgurId: image, size: 'full', format: 'jpeg' })]
+        : [siteMetadata.socialBanner],
       locale: 'en_US',
       type: 'website',
     },
     twitter: {
       title: `${title} | ${siteMetadata.title}`,
       card: 'summary_large_image',
-      images: image ? [image] : [siteMetadata.socialBanner],
+      images: image
+        ? [generateImgurUrl({ imgurId: image, size: 'full', format: 'jpeg' })]
+        : [siteMetadata.socialBanner],
     },
     ...rest,
   }

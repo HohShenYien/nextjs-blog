@@ -1,0 +1,41 @@
+@keyframes left-to-right {
+  from {
+    left: -10%;
+  }
+  to {
+    left: 110%;
+  }
+}
+@keyframes right-to-left {
+  from {
+    right: -10%;
+  }
+  to {
+    right: 110%;
+  }
+}
+
+.animatedFirstGuy {
+  animation: left-to-right linear 38s infinite;
+  bottom: 0;
+  left: -20%;
+}
+
+.animatedSecondGuy {
+  animation: left-to-right linear 30s infinite;
+  left: -10%;
+  bottom: 30%;
+}
+
+.animatedThirdGuy {
+  animation: right-to-left linear 44s infinite;
+  right: -20%;
+  bottom: 20%;
+}
+
+.animatedFourthGuy {
+  animation: right-to-left linear 36s infinite;
+  right: -10%;
+  bottom: 10%;
+  transform: scaleX(-1);
+}

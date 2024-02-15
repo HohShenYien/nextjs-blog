@@ -1,0 +1,326 @@
+---
+title: 'The Evil Behind Your API Sluggishness: N+1 Select Queries'
+date: '2023-12-24'
+lastmod: '2023-12-24'
+tags: ['backend', 'orm', 'design', 'performance', 'database']
+draft: false
+summary: "Your APIs start to slow down? Maybe it's time to check the database queries"
+image: msHmWZY
+---
+
+<TOCInline toc={props.toc} />
+
+It is a fine morning, you're sitting on your desk coding away a small feature while sipping your coffee, until the customer support guy shows up beside your desk and tells you that **the customers are complaining about slow load time** and bad performance. Some of the operations that used to take less than 300ms are now occupying **over 4s**!
+
+Arguably, **solving performance issues** isn't the easiest task. At times, they might even seem impossible without taking weeks if not months. Even worse, performance issues tend to be **highly critical**, like can you imagine coding in an IDE that has a 500ms delay?
+
+<ImgurImage size="medium thumbnail" imgurId="yFpvte1" format="png" alt="An Image of bottleneck" width={400} height={300}/>
+
+While many **potential factors** can lead to slow performance, it's usually not wrong to look into **database queries** first if you have no clue. After all, the database has always been a [bottleneck](https://news.ycombinator.com/item?id=20123659).
+
+Why database you asked? In Python, [it takes less than 1 ms to transform a list of 1000 elements](https://stackoverflow.com/a/6407222). Meanwhile, in the database, it takes anywhere between several ms for a basic select, to a few hundred ms.
+
+## The N+1 Select Problem
+
+### TL;DR
+
+Say, you want to select all the users along with their addresses, which lie in two tables, `Users` and `Addresses`
+
+**Instead of doing JOIN** between two tables, you first select the first table,
+
+```sql
+SELECT * FROM Users;
+```
+
+Then you loop for each user found
+
+```sql
+SELECT * FROM Addresses
+    WHERE userId = ?;
+```
+
+This results in **additional N queries**, where N is the number of Users, thus, giving the name of **N+1 Problem**. *(If you're wondering, the 1 comes from the initial query)*
+
+### WHAT?
+
+<ImgurImage size="large thumbnail" imgurId="tr4r8hR" format="png" alt="Visualizing the Join" width={400} height={300}/>
+
+You might now be wondering, this doesn't look smart. Joining is the primary reason why we use **Relational Database**, not to mention it's way fewer codes than the N+1 Selects.
+
+The truth comes down to how [**ORM**](https://www.freecodecamp.org/news/what-is-an-orm-the-meaning-of-object-relational-mapping-database-tools/) works. We are very used to abstracting away the underlying SQL by using ORMs like [Hibernate](https://hibernate.org/orm/), [Django](https://docs.djangoproject.com/en/5.0/topics/db/queries/), and [Laravel Eloquent](https://laravel.com/docs/master/eloquent). As a result, sometimes we overlook certain aspects, and one day, they'll bite us back.
+
+When you're defining relationships, ORM typically presents two options — **Eager Loading** and **Lazy Loading**.
+
+Note: I'll be using **Spring Boot** example in this article, but what I'm trying to convey should apply to other frameworks too.
+
+#### Eager Loading
+
+Using the previous example, we can define the **one-to-many** relationship (one user has many addresses) as such
+
+```java
+...
+@Model
+public class User {
+    ...
+    @OneToMany(fetch = FetchType.EAGER)
+    private List<Address> addresses;
+}
+```
+
+Now, whenever you fetch users, their addresses will **always come together**, regardless of whether you need it or not.
+
+```java
+...
+public class UserService {
+    @Autowired
+    UserRepository userRepository;
+
+    public User getOneUser(String userId) {
+        // The address already comes with the user!
+        User user = userRepository.getById(userId);
+    }
+}
+```
+
+If you examine the SQL query made to the database, you will notice that it uses `JOIN`, **fetching the addresses** along with the user.
+
+```sql
+Hibernate: 
+    select ...
+    from
+        users users0_ 
+    left outer join
+        addresses addresses1 
+            on users.id=addresses.user_id
+    where
+        users.id=?
+```
+
+#### Lazy Loading
+
+Meanwhile, lazy loading, which is the **default behavior**, only loads the relationship **on demand**. In other words, the relationship **won't be loaded** until it is accessed.
+
+```java
+...
+@Model
+public class User {
+    ...
+    // this is the default in Spring Boot, and also in most other ORMs
+    @OneToMany(fetch = FetchType.LAZY)
+    private List<Address> addresses;
+}
+```
+
+So, if you're fetching the users in the service now,
+
+```java
+...
+public class UserService {
+    @Autowired
+    UserRepository userRepository;
+
+    public User getOneUser(String userId) {
+        // The address field isn't populated
+        User user = userRepository.getById(userId);
+        // The address is populated now
+        user.address;
+    }
+}
+```
+
+The user will first be fetched **without** any `JOIN`, then a **separate SQL query** will be issued to get the user's address
+
+```sql
+Hibernate: 
+    select ...from addresses addresses0_
+    where addresses0_.user_id=?
+```
+
+### What is the Issue?
+
+Well, you certainly won't want to **make unnecessary** `JOIN`, especially if you're querying for a lot of data to slow your queries. This **rules out Eager Loading**, leaving us with Lazy Loading, which is usually fine most of the time. *(unless you're very sure you always need the relationship)*
+
+Now, imagine in the previous scenario, you want to return **a list of users with their countries**. You might be creating a response object with a constructor like this
+
+```java
+...
+public class UserWithCountriesResponse {
+    ...
+    public UserWithCountriesResponse(User user) {
+        userId = user.getId();
+        username = user.getUsername();
+        ...
+        // This is where the issues may lie!
+        countries = user.addresses.stream()
+                        .map((address) -> address.getCountry())
+                        .collect(Collectors.toList());
+    }
+}
+```
+
+If the users' addresses are **lazily loaded**, this will result in the N+1 Problem!
+
+Now, let's say in your controllers, you are fetching multiple users with countries
+
+```java
+...
+public class UserController {
+    ...
+    @GetMapping("/")
+    public List<UserWithCountriesResponse> getUsers() {
+        List<User> users = userService.getUsers();
+        return users.stream()
+                .map(user -> UserWithCountriesResponse(user))
+                .collect(Collectors.toList());
+    }
+}
+```
+
+Let's do some Math here, if you have **100 users**, this means that there'll be an additional **100 Select queries**! If let's say each query takes around 1ms, then this will mean an **additional 100ms load time**!
+
+Note that this is a **simplified scenario**, more often than not, you might have nested relationships like this, where every address also has a country
+
+<ImgurImage size="large thumbnail" imgurId="pMKnuS7" format="jpg" alt="A simple example of ERD to demonstrate the problem" width={400} height={300}/>
+
+What does this mean? Each address will attach another country, making it `1 + N + N * 1`! In other words, the N+1 Problem is **multiplicative** with nested relationships. *(If each address has M country, then there'll be* `N * M` *queries)*
+
+And of course, I'm sure you can imagine how this problem can pop up in many ways in your system if care is not taken.
+
+## The Solution
+
+The solution is quite direct, either **load the relationship earlier** or **always pass the relationship**.
+
+1. **Prefetching relationship**
+    
+    Back to the example earlier, if you know that you are going to need the addresses and countries, you should always **preload** it ahead of time, for example in Spring Boot, you can do `JOIN FETCH`:
+    
+    ```java
+    public interface UserRepository extends JpaRepository<User, Long> { 
+        @Query(value = "SELECT u FROM users u " +
+                         "LEFT JOIN FETCH u.addresses a" + 
+                         "LEFT JOIN FETCH a.country")   
+        List<User> findAllWithAddressAndCountry();
+    }
+    ```
+    
+    Or more appropriately, [Entity Graph](https://www.baeldung.com/jpa-entity-graph). Similarly, in Laravel, there's [with](https://laravel.com/docs/5.2/eloquent-relationships#eager-loading), and in Django, there's [prefetch\_related](https://docs.djangoproject.com/en/5.0/ref/models/querysets/#prefetch-related).
+    
+2. **Caching / Passing relationship**
+    
+    This is more of a subtle problem. Oftentimes, when it comes to complex operations, the **entity's ID** might be passed instead.
+
+    <ImgurImage size="large thumbnail" imgurId="ij5xyQX" format="png" alt="Multiple Layers " width={500} height={400} caption="Look at the layers, now imagine each layer has additional N+1 queries"/>
+    
+    For example, I saw this happening in the [Event Sourcing](https://microservices.io/patterns/data/event-sourcing.html) pattern before, where the entity's relationship needs to be accessed, but only the entity's ID is passed. As a result, each step of processing (it can go up to tens) will have to **load all the relationships** again and again (it's a few levels deep), obviously resulting in **huge latency**.
+    
+    A solution to this can involve **passing or caching the relationship** in a serializable manner: Create a **separate POJO / DTO** that stores the necessary info and cache / pass it around.
+    
+
+Honestly, it really boils down to **being more careful when accessing an object's relationship**. Like just think twice when using the lazy relationship.
+
+## Why is it a Problem?
+
+So we did mention that a single SELECT is very fast, and [multiple SELECTs are probably faster](https://stackoverflow.com/a/5876241) if the JOIN is deeply nested. So some might think that N+1 Selects might be better at times, right?
+
+Unfortunately, no. This argument misses a very big consideration: **The Network Delay**. What if your database is located on another server from your backend? Even an additional delay of 0.5ms can add up quickly with the **multiplicative nature** of the N+1 problem.
+
+Okay, so what if the database is located on the same server as the backend? Well, unless you're doing `SELECT .... WHERE ID IN (1,2,3,...)`, which can [sometimes be better than JOIN](https://blog.codinghorror.com/all-abstractions-are-failed-abstractions/) *(but shouldn't matter to you since you're fetching individual Lazy relationships)*, [N+1 selects are almost always leagues slower](https://stackoverflow.com/a/54115466).
+
+Conclusion? **Avoid the N+1 problem as much as possible**!
+
+## Detecting N+1 Problem
+
+Detecting the N+1 problem is usually very **straightforward**. All you need to do is **monitor database queries**.
+
+Most ORMs usually support **debugging mode**, where you can print out the queries into the terminal.
+
+For example, in Spring Boot, these configurations will turn debugging on
+
+```plaintext
+spring.jpa.properties.hibernate.show_sql=true
+spring.jpa.properties.hibernate.use_sql_comments=true
+spring.jpa.properties.hibernate.format_sql=true
+```
+
+However, when it comes to debugging queries, I think Laravel trumps with its [Debugbar](https://github.com/barryvdh/laravel-debugbar)
+
+<ImgurImage size="huge thumbnail" imgurId="mBECCBb" format="png" alt="Laravel Debugbar" width={700} height={300}/>
+
+or the [Laravel Telescope](https://laravel.com/docs/10.x/telescope)
+
+<ImgurImage size="huge thumbnail" imgurId="fYOE4Sz" format="png" alt="Laravel Telescope" width={700} height={500}/>
+
+With these tools, you should be able to quickly identify multiple queries whose purpose is **to retrieve a single row** such as these, where they are **related, but not fetched together**. Sometimes, they might mix with other queries too!
+
+```sql
+SELECT * FROM 'users' WHERE 'users'.'id' = '1234'
+SELECT * FROM 'users' WHERE 'users'.'id' = '3456'
+SELECT * FROM 'users' WHERE 'users'.'id' = '0000'
+SELECT * FROM 'users' WHERE 'users'.'id' = '1111'
+SELECT * FROM 'users' WHERE 'users'.'id' = '2222'
+SELECT * FROM 'users' WHERE 'users'.'id' = '3333'
+SELECT * FROM 'users' WHERE 'users'.'id' = '4444'
+```
+
+### Derived Attribute
+
+A very common pattern where the problem arises when you're unaware that **a particular attribute / getter is retrieving a relationship**, and you use it in part of an **iteration.**
+
+Back to the example earlier, say you defined a `is_asian` getter, which checks if any of the user's address is in Asia.
+
+```java
+@Model
+public class User {
+    ...
+    public boolean isAsian() {
+        return addresses.stream().anyMatch(address -> {
+            return Constants.ASIAN_COUNTRIES.contains(address.country);
+        });
+    }
+}
+```
+
+Now, let's say you forgot to prefetch the relationship, and use it in an **iteration**
+
+```java
+...
+public class UserService {
+    ...
+    // Find the number of asians in an organization
+    public int numberOfAsians(String organizationId) {
+        List<User> users = 
+            userRepository.findAllByOrganizationId(organizationId);
+
+        int res = 0;
+        for (User user: users) {
+            if (user.isAsian()) {
+                res += 1
+            }
+        }
+        return res;
+    }
+}
+```
+
+And kaboom, the N+1 problem happens!
+
+This can also arise when you are returning a group of users, with the `isAsian` attribute, but **without prefetching the relationship**.
+
+Notably, in Laravel, there's a `$appends` [feature](https://laravel.com/docs/5.6/eloquent-serialization#appending-values-to-json), that will **eagerly load** a derived attribute,
+
+```php
+class User extends Model
+{
+    protected $appends = ['is_asian'];
+}
+```
+
+I hope you can see where this is going, the `is_asian` attribute will be **eagerly fetched** for every User model, but the **relationship is not eager**. In other words, every time you access a User Object, you are **creating N+1 queries**!
+
+This happened to one of the projects that I worked on previously, and guess what, it easily added **over 1 second of delays** across many pages!
+
+## Conclusion
+
+Of course, the N+1 problem is just one of the many possible causes of a slow API response, and in-depth analysis is often needed to identify them. However, it's always a good first look into this problem since it's arguably one of the more straightforward issues.
+
+Lastly, always **treat relationships with care**.

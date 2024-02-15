@@ -29,15 +29,15 @@ const computedFields: ComputedFields = {
   readingTime: { type: 'json', resolve: (doc) => readingTime(doc.body.raw) },
   slug: {
     type: 'string',
-    resolve: (doc) => doc._raw.flattenedPath.replace(/^.+?(\/)/, ''),
+    resolve: (doc) => doc._raw.flattenedPath.replace(/^.+?(\/)/, '').replace('blog/', ''),
   },
   path: {
     type: 'string',
-    resolve: (doc) => doc._raw.flattenedPath,
+    resolve: (doc) => doc._raw.flattenedPath.replace('blog/', ''),
   },
   filePath: {
     type: 'string',
-    resolve: (doc) => doc._raw.sourceFilePath,
+    resolve: (doc) => doc._raw.sourceFilePath.replace('blog/', ''),
   },
   toc: { type: 'string', resolve: (doc) => extractTocHeadings(doc.body.raw) },
 }
@@ -62,6 +62,21 @@ function createTagCount(allBlogs) {
   writeFileSync('./app/tag-data.json', JSON.stringify(tagCount))
 }
 
+function createYearCount(allBlogs) {
+  const yearCount: Record<number, number> = {}
+  allBlogs.forEach((file) => {
+    if (!isProduction || file.draft !== true) {
+      const year = new Date(file.date).getFullYear()
+      if (year in yearCount) {
+        yearCount[year] += 1
+      } else {
+        yearCount[year] = 1
+      }
+    }
+  })
+  writeFileSync('./app/year-data.json', JSON.stringify(yearCount))
+}
+
 function createSearchIndex(allBlogs) {
   if (
     siteMetadata?.search?.provider === 'kbar' &&
@@ -69,7 +84,8 @@ function createSearchIndex(allBlogs) {
   ) {
     writeFileSync(
       `public/${siteMetadata.search.kbarConfig.searchDocumentsPath}`,
-      JSON.stringify(allCoreContent(sortPosts(allBlogs)))
+      // Just replacing all /blog/ to /
+      JSON.stringify(allCoreContent(sortPosts(allBlogs))).replaceAll('blog/', '')
     )
     console.log('Local search index generated...')
   }
@@ -86,7 +102,8 @@ export const Blog = defineDocumentType(() => ({
     lastmod: { type: 'date' },
     draft: { type: 'boolean' },
     summary: { type: 'string' },
-    images: { type: 'json' },
+    image: { type: 'string', required: true },
+    series: { type: 'string' },
     authors: { type: 'list', of: { type: 'string' } },
     layout: { type: 'string' },
     bibliography: { type: 'string' },
@@ -103,7 +120,7 @@ export const Blog = defineDocumentType(() => ({
         datePublished: doc.date,
         dateModified: doc.lastmod || doc.date,
         description: doc.summary,
-        image: doc.images ? doc.images[0] : siteMetadata.socialBanner,
+        image: doc.image ?? siteMetadata.socialBanner,
         url: `${siteMetadata.siteUrl}/${doc._raw.flattenedPath}`,
       }),
     },
@@ -124,6 +141,7 @@ export const Authors = defineDocumentType(() => ({
     linkedin: { type: 'string' },
     github: { type: 'string' },
     layout: { type: 'string' },
+    website: { type: 'string' },
   },
   computedFields,
 }))
@@ -153,5 +171,6 @@ export default makeSource({
     const { allBlogs } = await importData()
     createTagCount(allBlogs)
     createSearchIndex(allBlogs)
+    createYearCount(allBlogs)
   },
 })
