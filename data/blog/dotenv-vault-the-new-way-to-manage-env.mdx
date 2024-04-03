@@ -1,0 +1,517 @@
+---
+title: 'Dotenv-vault: The New Way to Manage .env'
+date: '2023-05-24'
+lastmod: '2023-05-24'
+tags: ['nextjs', 'docker', 'devops', 'env']
+draft: false
+summary: "Are you still sharing your .env file around using Slack? It's probably time to level up your game and use a proper tool for it."
+image: S8fqnN7
+---
+
+Sharing `.env` values **manually** through **copy-pasting** seems to still be the most common approach in the software industry. However, I thought we've always been boasting about our technological prowess, but why are we stuck with this old-school tradition?
+
+In this article, I will be sharing a somewhat _opinionated_ tool, **dotenv-vault** that modernizes the way we handle `.env` files!
+
+As a bonus, I'll also show you how it can simplify your docker deployment process.
+
+## What's Wrong with Manual Sharing?
+
+While sharing .env through chats **doesn't necessarily lead to disaster**, but it does come with some **unpleasant effects**.
+
+PS: I will not consider security here. _(not that it's insignificant, but I doubt that multimillion project owner still doing it)_
+
+### Messy
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="8MVaBGs"
+  format="png"
+  alt="Messy Meme"
+  width={400}
+  height={300}
+/>
+
+Here are some scenarios
+
+1. You asked someone for a secret, they sent you through DM's or Telegram.
+2. Someone updated a feature to include a new secret, they sent them to a group
+3. Your team leader thought the secret might better live in the documentation  
+   _PS: Only some_
+4. During onboarding, the secrets were sent to you through an email
+5. etc.
+
+So where can you find secret A? Telegram? Slack? Direct Message? Group Message? Which Group?
+
+The secrets are **scattered everywhere**!
+
+Of course, it's not the end of the day, you can always ask another developer for the secrets.
+
+_Just that we developers don't like to ask people sometimes._
+
+### Error-prone
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="EAhv9pz"
+  format="png"
+  alt="Hell"
+  width={400}
+  height={300}
+/>
+
+What if you accidentally **deleted a secret** from staging/production while editing the file? Or what if you edited the **wrong variable**? What if you **deleted a character** while scrolling down?
+
+Maybe it wasn't noticeable right away as .env are cached, but the production might go down during the next deployment!
+
+As long as edits happen in terminals, it's **prone to errors**, especially when juniors or interns who aren't familiar with bash get access to it. _(I believe the readers are not one of these)_
+
+_PS: From one of my experiences, we update the production/staging .env using ssh, and that's my assumption here._
+
+---
+
+Again, these two reasons aren't huge enough issues, but they make us less happy at times. Also, it's always a good reason to progress forward, isn't it?
+
+In the worst-case scenario, it may even lead to huge mistakes, such as deleting important env secrets while updating production `.env`, and breaking the production.
+
+## Env Vault
+
+Introducing `.env` secrets manager, [dotenv-vault](https://www.dotenv.org/).
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="MMxcAVK"
+  format="png"
+  alt="Screenshot of dotenv website"
+  width={600}
+  height={600}
+/>
+
+In short, it's like Git, but for `.env` files.
+
+It's pretty intuitive for most programmers out there, with operations involving only `pull`, `push`, and `build` most of the time.
+
+### Benefits
+
+Clearly, when it comes to benefits, it must solve the aforementioned issues. Let's see how `dotenv-vault` does it
+
+#### Clean
+
+Even with just a quick peek at the screenshot above, you can already see how the secrets will be **kept centralized**.
+
+The best part about this is that if you're building with microservices or having multiple projects, then these secrets **can be accessed by all of them**, without repetition! _Say bye to copy pasting values across multiple projects._
+
+Every update will be **made directly to the vault**, so everyone can access all updated values easily. Beyond that, it also offers **different environments** to separate the secrets of our environments, so it does cater to most of our needs.
+
+#### Safety
+
+_This is not about security, but corresponds to error prevention._
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="AIZE5lC"
+  format="png"
+  alt="Screenshot of editing secret on dotenv"
+  width={400}
+  height={400}
+/>
+
+Remember how I commented on the insecurity of editing file from the terminal? What if you can only **edit one variable at one time**? While carelessness can still lead to mistakes, the **possibility of errors will be minimized now**.
+
+#### Simplicity
+
+How many commands do we need to remember? **2**, for most cases.
+
+```bash
+npx dotenv-vault pull [development/staging/production] # to pull in new changes
+npx dotenv-vault push # to push changes from local
+```
+
+#### Security
+
+I'm no security expert here, but according to the [docs](https://www.dotenv.org/security/), they do look pretty secure! All **decrypted values exist only in memory** and are flushed after using it.
+
+#### Others
+
+Unfortunately, the paid version is required to access more features of dotenv-vault. Nonetheless, **$5 per month per user** seems rather affordable for companies out there.
+
+_You probably don't need dotenv-vault for your personal projects anyways, who are you sending your secrets to?_
+
+Here are some cool features I find on [paid version](https://www.dotenv.org/pricing/):
+
+1. **Version history**, similar to Git, allows you to rollback and examine changes at the individual level
+2. **Slack notification**, who wouldn't want to be notified when someone changes the secrets?
+3. **User Access Controls**, it's probably best to just let the DevOps guys manage these keys. Or perhaps the seniors.
+
+Of course, these are some nice additions, dotenv-vault is totally amazing in its free version anyways.
+
+### What about Config Server?
+
+<ImgurImage
+  size="medium thumbnail"
+  imgurId="GdfkECf"
+  format="png"
+  alt="Spring Boot"
+  width={400}
+  height={300}
+/>
+
+If you come from a **Spring Boot** background, you might find this surprisingly similar to [config server](https://www.baeldung.com/spring-cloud-configuration)! Nevertheless, config servers **aren't the convention** for JavaScript & Python projects, so yeah.
+
+There are more differences, but I'd stop here since it's not the purpose of this article. You can read more about it [here](https://dev.to/gregorygaines/stop-using-env-files-now-kp0).
+
+## Project Setup
+
+To demo the usage of `dotenv-vault`, I'll be using a Next.js project. More specifically, I'll be using my next-power-starter template, to get started, simply run
+
+```bash
+yarn create next-app dotenv-hello-world -e https://github.com/HohShenYien/next-power-starter
+```
+
+_Not self-promotion, just simply because it's an empty project on my computer that I can use directly._
+
+## Usage
+
+1. Sign Up  
+   Well, I guess you know how to do that. Here's the [link](https://vault.dotenv.org/account/signup).
+2. Create a new vault  
+    The vault is required to **link the project with dotenv-vault server**. This step is required for new projects.
+
+   ```bash
+   npx dotenv-vault new
+   ```
+
+   <ImgurImage
+     size="full"
+     imgurId="EkdaTu0"
+     format="png"
+     alt="Screenshot of my terminal"
+     width={800}
+     height={300}
+   />
+
+   After pressing `y`, your browser will launch into a page like this
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="bIOEXR0"
+     format="png"
+     alt="Screenshot of new project in dotenv"
+     width={600}
+     height={400}
+   />
+
+   After clicking next, you will notice that a new file, `.env.vault` is added to your project!
+
+   <ImgurImage
+     size="full"
+     imgurId="7YU1mjW"
+     format="png"
+     alt="screenshot of my .env.vault"
+     width={800}
+     height={400}
+   />
+
+   The value there will **point to the remote project on dotenv**. _(doesn't it sound like Git?)_  
+    This `DOTENV_VAULT` is not a secret, it's just like the github project link, nothing special about it. Therefore it's okay to be shown.
+
+3. Login from terminal  
+    The next step will require us to prove that we're **a member of the project** before we can access the secrets.
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="EbJ4ajx"
+     format="png"
+     alt="Screenshot of step2 in project setup"
+     width={600}
+     height={500}
+   />
+
+   ```bash
+   npx dotenv-vault login
+   ```
+
+   <ImgurImage
+     size="full"
+     imgurId="oVwwtsr"
+     format="png"
+     alt="Screenshot of my terminal to login dotenv"
+     width={800}
+     height={400}
+   />
+
+   You'll either be logged in already like below, or you'll need to login in dotenv.
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="i2DRGED"
+     format="png"
+     alt="Logging in from dotenv"
+     width={500}
+     height={600}
+   />
+
+   Going back to the project, you should see a new file, `.env.me`. This file is like the auth token that **proves that you can access the project**. Therefore, if you share the file, then others can also access the secrets without having to login again.
+
+   <ImgurImage
+     size="full"
+     imgurId="PGACzHM"
+     format="png"
+     alt="Screenshot of my edited .env.me"
+     width={700}
+     height={500}
+   />
+
+   PS: This file is like the top secret, don't share it!
+
+4. Add some secrets  
+    Next, let's head back to your [dashboard](https://vault.dotenv.org/ui). You should see your project being listed there.
+
+   Clicking into the project, you should see something like
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="71tLJ1o"
+     format="png"
+     alt="Screenshot of dotenv-hello-world"
+     width={600}
+     height={400}
+   />
+
+   Since we have already setup, just click the _click here._
+
+   Next, we can add a secret, say NEXT_PUBLIC_APP_NAME and MY_NAME.
+
+   _PS: The prefix NEXT_PUBLIC... means that it can be used in the client, while other environmental variables can only be accessed in the server. Read more about it in the_ [_docs_](https://nextjs.org/docs/pages/building-your-application/configuring/environment-variables)_._
+
+   <ImgurImage
+     size="medium thumbnail"
+     imgurId="uAUtWWy"
+     format="png"
+     alt="Adding new secret"
+     width={400}
+     height={400}
+   />
+
+   It should look like this in the end.
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="VwgYtiC"
+     format="png"
+     alt="Screenshot of secrets on dotenv"
+     width={600}
+     height={400}
+   />
+
+   Note that the environment is `development`
+
+5. Pull from local  
+    Now that we've set it up in `dotenv-vault`, we can now download it to our local project. Let's run
+
+   ```bash
+   npx dotenv-vault pull development # depends on the environment you want to pull
+   ```
+
+   and voila, the image is now in your project!
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="8qwE7kz"
+     format="png"
+     alt="screenshot of downloaded .env"
+     width={600}
+     height={400}
+   />
+
+6. Push from local  
+    Maybe you'd prefer to update the `.env` and publish it on `dotenv`? Let's do it
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="jyTXhoN"
+     format="png"
+     alt="Added new variables in .env"
+     width={600}
+     height={400}
+   />
+
+   I've added a new variable, `MY_EMAIL` and modified `MY_NAME` to my full name. Let's push it
+
+   ```bash
+   npx dotenv-vault push development # depends on the environment you want to push to
+   ```
+
+   Checking it on the `dotenv-vault`, you should see the new keys appearing there
+
+   <ImgurImage
+     size="huge thumbnail"
+     imgurId="FFUQ7rX"
+     format="png"
+     alt="Screenshot of updated value from dotenv"
+     width={600}
+     height={500}
+   />
+
+### Checking the environmental variable in project
+
+Let's use the variables from the Next.js project. Open up the page, `app/page.tsx`
+
+_Yes, this project uses the app directory, you can read more about it_ [_here_](https://blogs.shenyien.cyou/the-nextjs-13-app-directory-and-server-components)_._
+
+```typescript
+// src/app/page.tsx
+...
+export default function Home() {
+  // I can do this because this is a server component
+  const myName = process.env.MY_NAME;
+  ...
+              <p className="text-slate-600">
+                The template which balances flexibility and simplicity
+              </p>
+              <p className="font-sm text-slate-600">By {myName}</p>
+  ...
+```
+
+Spin up the development server,
+
+```bash
+yarn dev
+```
+
+You can now find the variable shown up _(The By Hoh Shen Yien)_
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="BkxqvVd"
+  format="png"
+  alt="Screenshot of variable showing in project"
+  width={600}
+  height={400}
+/>
+
+## Bonus: Deployment with Docker
+
+Finally, let's look at how we can deploy the project with docker.
+
+### Production Environment
+
+Let's first push our `.env` to production,
+
+1. `.env.production`  
+   Let's create a new `.env.production` file which will be pushed to production
+
+   ```bash
+   cp .env .env.production
+   ```
+
+   Before we push, we will also need to edit the first line, which indicates the environment
+
+   ```plaintext
+   # production@v1
+   NEXT_PUBLIC_APP_NAME="dotenv-hello-world"
+   MY_NAME="Hoh Shen Yien"
+   MY_EMAIL="hohshenyien@gmail.com"
+   ```
+
+2. Pushing to dotenv
+
+   ```bash
+   npx dotenv-vault push production
+   ```
+
+You should see the secrets appearing on `remote dotenv`, in the production environment.
+
+### Setting up Docker
+
+You can install the Docker [here](https://www.docker.com/) if you haven't already.
+
+Let's add a Dockerfile, here's the starting file from [Nextjs](https://github.com/vercel/next.js/blob/canary/examples/with-docker/Dockerfile)
+
+Copy the entire content, and paste it into `/Dockerfile`.
+
+Finally, also update `/next.config.js` to use the "standalone" output type
+
+```typescript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+}
+
+module.exports = nextConfig
+```
+
+### Setting up Next.js
+
+To deploy on Docker, we'll need to add a new dependency,
+
+```bash
+yarn add dotenv-vault-core
+```
+
+You'll need this line before you can access the environmental variables.
+
+_It will download the .env to the server during execution_
+
+```typescript
+require('dotenv-vault-core').config()
+```
+
+Since there's technically no `index.js` file that will be called on every page _(if just page, then it can lie in_ `app/layout.tsx`_, but they won't be available in API routes)_ & API.
+
+Hence, I'll create a `env.ts` file that contains all environmental variables
+
+```typescript
+// src/utils/configs/env.ts
+require('dotenv-vault-core').config()
+
+export const MY_NAME = process.env.MY_NAME
+```
+
+And to access these variables, just **import them**! Simple and straightforward.
+
+### Retrieving Production Key
+
+Finally, we will need to pass the **production vault key** for `dotenv` to download the `.env` file. To retrieve the key, you can run
+
+```bash
+npx dotenv-vault keys production
+```
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="Fmf7BSj"
+  format="png"
+  alt="Screenshot of running the command"
+  width={600}
+  height={400}
+/>
+
+You'll get the production key in the next line. Copy it, we'll use it to run the docker image.
+
+_PS: the key should look like_ `dotenv://key_..../.env.vault?environment=production`
+
+### Building Docker Image
+
+Finally, just build the docker image as usual
+
+```bash
+docker build -t docker-next .
+```
+
+and to test it locally on localhost:8080 _(Because 3000 is occupied by the running Next.js project earlier)_
+
+```bash
+docker run -e DOTENV_KEY="your_key_here" --rm -it -p 8080:3000 --init docker-next
+```
+
+And that's it. You have a perfectly working Docker image.
+
+You can check out their [documentation](https://www.dotenv.org/docs/integrations/docker/express.html) for more details.
+
+## Conclusion
+
+Migrating to `dotenv-vault` is relatively simple, and its benefits are quite significant.
+
+I **used it once and truly enjoyed it**, so perhaps you should try it too!
+
+**Disclaimer**: I am not sure how will `dotenv` and Docker work in a serverless environment (Vercel), maybe it'll retrieve it for every different server?

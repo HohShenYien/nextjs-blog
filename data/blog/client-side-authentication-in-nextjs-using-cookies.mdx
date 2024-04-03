@@ -1,0 +1,944 @@
+---
+title: 'Client-Side Authentication in Next.js using Cookies'
+date: '2023-07-31'
+lastmod: '2023-07-31'
+tags: ['nextjs', 'react', 'authentication', 'react-query']
+draft: false
+summary: 'A step-by-step guide to managing client-side authentication with cookies from the client-side in Next.js'
+image: ffMnjbK
+---
+
+It's always been a hassle to manage authentication especially when it comes to **setting up a new project**.
+
+I'll be honest, despite having more than a year or two's experience in web development, it's still difficult to implement a **client-side authentication that just works**. However, recently, I was working on a web application that requires it, and after quite some trials and errors, I came up with my own **template for authentication**!
+
+I'll be sharing the **authentication template** in this article, and am open to feedback 💬 if any of you see potential issues in it!
+
+PS: This article uses **page router** because I came across quite some pains when working on the app router.
+
+Here's how it'll work on codesandbox, and the completed codes on GitHub: [nextjs-client-authentication](https://github.com/HohShenYien/nextjs-client-authentication)
+
+<iframe
+  src="https://codesandbox.io/p/github/HohShenYien/nextjs-client-authentication/main"
+  width="100%"
+  height="500px"
+></iframe>
+
+## Rationale
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="shDhXnD"
+  format="jpeg"
+  alt="Wonders why"
+  width={300}
+  height={300}
+/>
+
+Many things work, just like this template, but you might question or even disagree with what I am doing. I'll try to explain why did I choose this approach, but if you just want the codes, skip ahead to [Project Setup](#heading-project-setup).
+
+### How it Works
+
+It's super simple, in short, it works like the following:
+
+1. The server **sets the cookies** on requests upon logging in
+2. The client will make a request to **get the current user's information** (the backend will check the cookie and attaches the information if valid, or 403)
+3. The information will be **stored** somewhere in the client
+4. Every page will be marked as either **public** or **requires authentication**
+5. Before displaying the page component, the client will check if the user is **authenticated** to view, else the user will be **redirected** using a **wrapper component**
+
+### Have you heard of NextAuth (Auth.js now)?
+
+Indeed I do! And yes, [NextAuth](https://authjs.dev/) is quite powerful for a **full-stack** application.
+
+Even Next.js's [documentation](https://nextjs.org/docs/pages/building-your-application/routing/authenticating#authentication-providers) recommends it, but again, this project focuses on **client-side implementation**. I mean, some of us use Next.js for client-side only. _(Personally, I still prefer like Flask, Laravel, or even Spring for anything bigger)_
+
+However, NextAuth, and some of its alternatives (like [Iron Session](https://github.com/vvo/iron-session)) only provide full-stack solutions, or at least it must use JavaScript backend like Express.js. I have yet to come across any client-only authentication library. (It isn't that complex anyways)
+
+### Why Cookie
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="idLPwcB"
+  format="png"
+  alt="Some cookies for you"
+  width={300}
+  height={200}
+/>
+
+Ahh, the age-old argument of using [cookies vs local storage](https://stackoverflow.com/questions/3220660/local-storage-vs-cookies). _(I recommend you to have a read and get a better understanding of each pros and cons)_
+
+_Personally_, I would say cookies is more suitable for authentication because:
+
+1. Can be set **server-side**, and doesn't require client-side to intercept the requests to add in the header.
+2. Extension from above, it allows **http-only** flag (values cannot be accessed through JavaScript), helps to prevent [XSS](https://en.wikipedia.org/wiki/Cross-site_scripting) attack.
+3. All cookies will be attached to the **request header** to the server, so no additional client-side configurations are needed.
+4. Authentication should have an **expiry date**.
+
+### JWT or Session?
+
+Technically, that is more of a server-side implementation than a client-side's. Here's a great [article](http://cryto.net/~joepie91/blog/2016/06/13/stop-using-jwt-for-sessions/) on it. Anyways, here are my 2 cents.
+
+For **small projects**, I guess **JWT is fine**. While yes, it's not that safe _(read the article)_, and has some issues, they are generally easier to setup with the abundant libraries available, and probably easy to understand for beginners too.
+
+However, for **larger projects**, it's always better to migrate to the **session** for reasons like safety and easier to manage _(again, from the article)_.
+
+## Project Setup
+
+Let's start from scratch, using Next.js starter:
+
+```bash
+npx create-next-app
+```
+
+Here are some configurations that I chose, none are necessary for this project _(Maybe TypeScript is necessary)_
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="eufrcWJ"
+  format="png"
+  alt="My Nextjs configurations"
+  width={500}
+  height={300}
+/>
+
+### React Query
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="ve908eF"
+  format="jpeg"
+  alt="I like queries"
+  width={300}
+  height={300}
+/>
+
+While I'd love to make the project as minimal as possible, but here's an additional library that I must use, which I also recommend you to use, tanstack's [useQuery](https://tanstack.com/query/latest/docs/react/overview). It'll make requests much easier to manage.
+
+```bash
+yarn add @tanstack/react-query
+```
+
+And update `src/_app.tsx`
+
+```bash
+import "@/styles/globals.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { AppProps } from "next/app";
+import { useState } from "react";
+
+export default function App({ Component, pageProps }: AppProps) {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Component {...pageProps} />
+    </QueryClientProvider>
+  );
+}
+```
+
+Feel free to check out my other [article on React Query](/insta-next-exploring-apis-with-react-queries#heading-querying-from-frontend) to learn more about it!
+
+### Mock APIs
+
+Before we get to the front end, let's set up some basic **mock APIs** to demonstrate the working of our system.
+
+We will need three minimal API endpoints, which are `/api/login`, `/api/logout` and `/api/me`.
+
+API login will set a `http-only` cookie to **identify the user** if the credentials are right while `/api/me` will **return the user data if authenticated**.
+
+However, to get the cookie part working in Next.js API, you will need **an additional library** _(which you won't be needing if you're using other API servers)_
+
+```typescript
+yarn add cookies-next
+```
+
+#### Login
+
+A very simple API route to check if the credentials match, which will set cookies if they match
+
+```typescript
+// /src/pages/api/login.ts
+
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { setCookie } from 'cookies-next'
+
+type Data = {
+  status: 'success' | 'failure'
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  // You should also validate that it's a post request
+  // Please don't use this in production, you should validate it at least
+  const cred = JSON.parse(req.body) as { email: string; password: string }
+  if (cred.email === 'john@gmail.com' && cred.password === 'secret') {
+    setCookie('token', 'ThisIsJohnToken', {
+      req,
+      res,
+      httpOnly: true,
+      maxAge: 60 * 60 * 24,
+    })
+    res.status(200).json({ status: 'success' })
+  } else {
+    res.status(403).json({ status: 'failure' })
+  }
+}
+```
+
+#### Validate Me
+
+This API route will return the user's data if validated, or 403 status if not validated
+
+```typescript
+// /src/pages/api/me.ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { getCookie } from 'cookies-next'
+
+type Data = {
+  user?: {
+    username: string
+    email: string
+  }
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  const token = getCookie('token', { req, res })
+  if (token === 'ThisIsJohnToken') {
+    res.status(200).json({ user: { username: 'John', email: 'john@gmail.com' } })
+  } else {
+    res.status(403).json({})
+  }
+}
+```
+
+#### Logout
+
+The last API route to allow users to logout
+
+```typescript
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { setCookie } from 'cookies-next'
+
+type Data = {
+  status: 'success' | 'failure'
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  setCookie('token', 'ThisIsJohnToken', {
+    req,
+    res,
+    httpOnly: true,
+    // Small trick to delete the cookie by making it expired
+    maxAge: -1,
+  })
+  res.status(200).json({ status: 'success' })
+}
+```
+
+and that's it with these changes, we are ready to go!
+
+## Auth Queries
+
+Before actually going into the implementation, you still need one last thing, the auth queries. These are the queries that will be called to access the API routes.
+
+I'll usually use Axios, but for the sake of simplicity, this article will be using the basic [fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
+
+A quick briefing on `use-query` for those of you who don't know, it has some of these helpful features:
+
+1. **Query caching** - Calling `use-query` at one place and another will not cause the API requests to be made again, instead the response will be cached
+2. **Query refetch** - After some time _(refetchInterval or sometimes staleTime)_, the query will be refetched automatically
+3. **State Management** - Still using `useState` to manage state and `useEffect` to fetch queries when the page loads? use-query simplifies it, with additional `isLoading`, `isSuccess`, and `isError` in addition to a few others, making our lives simpler.
+
+### Login Mutation
+
+This is the most basic login function using the Fetch API, it'll just check if the response is 200.
+
+```typescript
+// src/queries/auth.ts
+type LoginCredentials = {
+  email: string
+  password: string
+}
+
+export const useLoginMutation = () => {
+  return useMutation({
+    mutationKey: ['login'],
+    mutationFn: async (credentials: LoginCredentials) => {
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          body: JSON.stringify(credentials),
+        })
+        if (!res.ok) {
+          throw new Error()
+        }
+        return { message: 'Successful' }
+      } catch (ex) {
+        throw new Error('Something went wrong')
+      }
+    },
+  })
+}
+```
+
+### Get Active User
+
+This query will call the current user's information, but it's still incomplete.
+
+```typescript
+export const useGetCurrentUserQuery = () => {
+  return useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/me')
+      if (response.ok) {
+        return (await response.json()).user as {
+          username: string
+          email: string
+        }
+      }
+      throw Error('Unauthenticated')
+    },
+  })
+}
+```
+
+### Logout Mutation
+
+This mutation will call GET on the logout route
+
+```typescript
+// src/queries/auth.ts
+export const useLogoutMutation = () => {
+  return useMutation({
+    mutationKey: ['logout'],
+    mutationFn: async () => {
+      await fetch('/api/logout')
+    },
+  })
+}
+```
+
+PS: The queries are basic, but insufficient currently.
+
+## Authentication Form
+
+Firstly, that's get the login form out for you to check if things work
+
+```typescript
+// src/pages/index.tsx
+import Header from "@/components/Header";
+import { useGetCurrentUserQuery, useLoginMutation } from "@/queries/auth";
+import Head from "next/head";
+import { useState } from "react";
+
+export default function Home() {
+  const [email, setEmail] = useState("john@gmail.com");
+  const [password, setPassword] = useState("secret");
+  const mutation = useLoginMutation();
+
+  const onSubmit = async () => {
+    await mutation.mutate({ email, password });
+  };
+  return (
+    <>
+      <main>
+        <h1>A simple client implementation for Authentication</h1>
+        {/* This is a bad pattern, use something better in your project */}
+        <div>
+          {mutation.isLoading
+            ? "Loading"
+            : mutation.isError
+            ? "Invalid credentials, please try again"
+            : mutation.isSuccess
+            ? "Login successfully, please wait while we redirect you..."
+            : ""}
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
+        >
+          <label>
+            Email
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              type="email"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+
+          <button type="submit" disabled={mutation.isLoading}>
+            {mutation.isLoading ? "Loading" : "Submit"}
+          </button>
+        </form>
+      </main>
+    </>
+  );
+}
+```
+
+And here's the header before you ask me
+
+```typescript
+// src/components/Header.tsx
+import { useLogoutMutation } from "@/queries/auth";
+import Link from "next/link";
+
+const Header = () => {
+  const logoutMutation = useLogoutMutation();
+  return (
+    <nav>
+      <Link href="/">Home</Link>
+      <Link href="/protected">Protected Route</Link>
+      <div className="spacer" />
+      <a href="#" onClick={() => logoutMutation.mutate()}>
+        Logout
+      </a>
+    </nav>
+  );
+};
+
+export default Header;
+```
+
+And you should be seeing the form when you start the web server with `yarn dev` or equivalent. _(I have added some additional styles, which don't matter here)_
+
+<ImgurImage
+  size="full"
+  imgurId="07o157L"
+  format="png"
+  alt="How it looks like without logging in"
+  width={600}
+  height={400}
+/>
+
+After logging in, you should be able to find the cookie and the success message
+
+<ImgurImage
+  size="full"
+  imgurId="cc660n6"
+  format="png"
+  alt="How it looks like after logging in"
+  width={600}
+  height={400}
+/>
+
+## Refetch Query
+
+The authentication seems to work so far right? Except it's **not**, let's try to show the current user's information
+
+```typescript
+// src/pages/index.tsx
+...
+  const mutation = useLoginMutation();
+  const currentUser = useGetCurrentUserQuery(); // get the user
+
+..
+
+        <h1>A simple client implementation for Authentication</h1>
+        {currentUser.isSuccess
+          ? JSON.stringify(currentUser.data)
+          : "Unauthenticated"}
+...
+```
+
+If you have logged in previously, you should see this
+
+<ImgurImage
+  size="full"
+  imgurId="N3wo61W"
+  format="png"
+  alt="Current user details"
+  width={600}
+  height={400}
+/>
+
+However, if you were to click **logout**, you'll notice something strange. The text **didn't change** to `"Unauthenticated"`!
+
+Supposedly, you'd expect the content of `currentUser` to change after every operation right? Well, as mentioned earlier, use-query will keep the response in the cache until it's stale or **invalidated**.
+
+Let's do it, we will invalidate the query whenever the user logs in or logout successfully.
+
+PS: This is quite **important**
+
+```typescript
+// src/queries/auth.ts
+export const useLoginMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["login"],
+    mutationFn: async (credentials: LoginCredentials) => {
+      ...
+    },
+    onSuccess: () => {
+      // The important line
+      queryClient.resetQueries({ queryKey: ["current-user"] });
+    },
+  });
+};
+
+export const useLogoutMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["logout"],
+    mutationFn: async () => {
+      await fetch("/api/logout");
+    },
+    onSuccess: () => {
+      // The important line
+      queryClient.resetQueries({ queryKey: ["current-user"] });
+    },
+  });
+};
+```
+
+And we have setup everything required.
+
+## Page Level Permission
+
+So how do we make certain page accessible to **public** while others only available for **authenticated users**?
+
+I was inspired by Next.js's [Layout Pattern](https://nextjs.org/docs/pages/building-your-application/routing/pages-and-layouts#layout-pattern) to attach the information as the component's properties
+
+```typescript
+// src/pages/index.tsx
+const Home = () => {
+  ...
+}
+
+Home.isPublic = true;
+export default Home;
+```
+
+To make it **compatible with TypeScript**, let's also add the types
+
+```typescript
+// src/pages/_app.tsx
+
+// Again, this is referenced from Next.js documentation
+import "@/styles/globals.css";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { NextPage } from "next";
+import type { AppProps } from "next/app";
+import { useState } from "react";
+
+export type NextPageWithProperties<P = {}, IP = P> = NextPage<P, IP> & {
+  isPublic?: boolean;
+};
+
+type AppPropsWithProperties = AppProps & {
+  Component: NextPageWithProperties;
+};
+
+export default function App({ Component, pageProps }: AppPropsWithProperties) {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Component {...pageProps} />
+    </QueryClientProvider>
+  );
+}
+```
+
+and using it with the Home,
+
+```typescript
+// src/pages/index.tsx
+const Home: NextPageWithProperties = () => {
+```
+
+as simple as that!
+
+_PS: Changing component properties will require a_ **_full refresh_** _to take effect, hot reloads don't update it._
+
+Lastly, let's also add a protected page which is not public.
+
+```typescript
+// src/pages/protected.tsx
+import Header from "@/components/Header";
+import Head from "next/head";
+import { NextPageWithProperties } from "./_app";
+
+const Protected: NextPageWithProperties = () => {
+  return (
+    <>
+      <Head>
+        <title>Create Next App</title>
+        <meta name="description" content="Generated by create next app" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <Header />
+
+      <main>
+        <h1>This is a protected page</h1>
+      </main>
+    </>
+  );
+};
+
+// this will require authentication
+Protected.isPublic = false;
+
+export default Protected;
+```
+
+So in the end, we will have two pages,
+
+```plaintext
+/          => public route
+/protected => private route: requires authentication
+```
+
+## Route Guard
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="D2FUGj0"
+  format="png"
+  alt="RouteGuard knows what can pass through"
+  width={200}
+  height={200}
+/>
+
+Now, this is probably the most **important part** of this tutorial, which is what makes page protection possible.
+
+It works by acting as a **wrapper** around the page, by examining the page's `isPublic` and `currentUser` to determine if the page should be shown or not.
+
+Let's first make a wrapper around the main component in `_app.ts`
+
+```typescript
+// src/components/RouteGuard.tsx
+import { NextPageWithProperties } from "@/pages/_app";
+interface RouteGuardProps {
+  Component: NextPageWithProperties;
+  pageProps: any;
+}
+
+const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
+  return <Component {...pageProps} />;
+};
+
+export default RouteGuard;
+```
+
+And wrapping it in our `_app.tsx`
+
+```typescript
+// src/pages/_app.tsx
+export default function App({ Component, pageProps }: AppPropsWithProperties) {
+  const [queryClient] = useState(() => new QueryClient());
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouteGuard Component={Component} pageProps={pageProps} />
+    </QueryClientProvider>
+  );
+}
+```
+
+### Protecting Non-Public Pages
+
+Right now, the `RouteGuard` isn't doing much, let's start by **blocking all non-public** pages to see it working.
+
+```typescript
+// src/components/RouteGuard.tsx
+const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
+  if (!Component.isPublic) {
+    return "You are unauthenticated to view";
+  }
+  return <Component {...pageProps} />;
+};
+```
+
+Heading back to the website, and visit `/protected`, the page should look blocked to you
+
+<ImgurImage
+  size="full"
+  imgurId="tKh4ZAq"
+  format="png"
+  alt="Unauthenticated"
+  width={500}
+  height={200}
+/>
+
+Of course, while this works, you'd typically want to **redirect** the user instead.
+
+Let's use `useEffect` to redirect the users to `/` when they visit a non-public page. What about the dependency? We can examine the page's `isPublic` whenever they **visit a new page**, so that's when the `Component` changes.
+
+```typescript
+// src/components/RouteGuard.tsx
+const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
+  const router = useRouter();
+  useEffect(() => {
+    if (!Component.isPublic) {
+      router.push("/");
+    }
+  }, [Component]);
+...
+```
+
+and.... the user shouldn't be able to visit the page anymore! So far so good.
+
+### Retrieving User Information
+
+Of course, that'd be bad. Even authenticated users wouldn't be able to visit the protected page when they should!
+
+It's time to add the `useGetCurrentUserQuery` we created earlier so that the `RouteGuard` knows the context.
+
+```typescript
+// src/components/RouteGuard.tsx
+const currentUser = useGetCurrentUserQuery()
+```
+
+and instead, the protected page should only be blocked if the page is **non-public** and the **user is unauthenticated**.
+
+Let's modify the conditions
+
+```typescript
+// src/components/RouteGuard.tsx
+const isAuthenticated = Component.isPublic || currentUser.isSuccess
+
+useEffect(() => {
+  if (!isAuthenticated) {
+    router.push('/')
+  }
+}, [Component])
+
+if (!isAuthenticated) {
+  return 'You are unauthenticated to view'
+}
+```
+
+Everything looks good!
+
+But if you have a pair of keen eyes, you'd notice something's missing. What if the **user is authenticated, but the query hasn't load finish**?
+
+### Query Loading
+
+That is, what if the user refresh the page when they are in a non-public page, causing the `useGetCurrentUserQuery` to run, so its `isSuccess` will be **false** initially. You can try it yourself, login and head to `/protected`, and refresh. You should be **redirected back to home**.
+
+We will now need to consider a third condition, when `isAuthenticated` is **loading**.
+
+```typescript
+// src/components/RouteGuard.tsx
+useEffect(() => {
+  if (!isAuthenticated && !currentUser.isLoading) {
+    router.push('/')
+  }
+}, [Component])
+```
+
+Likewise, you should display some loading page when the query is running initially. Normally, I'd like to take this chance and put a nice little splash screen like the [Instagram Clone](https://blogs.shenyien.cyou/series/insta-next) that I made earlier (inspired by Instagram, of course)
+
+<ImgurImage
+  size="full"
+  imgurId="wmhi9ys"
+  format="png"
+  alt="A nice splash screen"
+  width={600}
+  height={400}
+/>
+
+To do that, we will add another condition, we will only show the splash screen if the page is **private**, otherwise, why want to delay user flow right?
+
+```typescript
+// src/components/RouteGuard.tsx
+if (session.status === 'loading' && !Component.isPublic) {
+  // Feel free to change this to a nice SplashScreen component
+  return 'Loading...'
+}
+
+if (!isAuthenticated) {
+  return 'You are unauthenticated to view'
+}
+```
+
+And.... that's it, you got yourself a **fully working client authentication system**!
+
+All you need is some nice-looking UI and good logic, then it's another project done.
+
+Here are the full codes for `RouteGuard.tsx`
+
+```typescript
+// src/components/RouteGuard.tsx
+import { NextPageWithProperties } from "@/pages/_app";
+import { useGetCurrentUserQuery } from "@/queries/auth";
+import { useRouter } from "next/router";
+import { useEffect } from "react";
+interface RouteGuardProps {
+  Component: NextPageWithProperties;
+  pageProps: any;
+}
+
+const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
+  const router = useRouter();
+  const currentUser = useGetCurrentUserQuery();
+  const isAuthenticated = Component.isPublic || currentUser.isSuccess;
+
+  useEffect(() => {
+    if (!isAuthenticated && !currentUser.isLoading) {
+      router.push("/"); // or login page
+    }
+  }, [Component]);
+
+  if (currentUser.isLoading) {
+    return "Loading...";
+  }
+
+  if (!isAuthenticated) {
+    return "You are unauthenticated to view";
+  }
+
+  return <Component {...pageProps} />;
+};
+
+export default RouteGuard;
+```
+
+Do read on though, there's a bonus section and some alternatives.
+
+## Bonus: `useSession`
+
+While using `useGetCurrentUserQuery` is quite convenient itself, it can **be better**.
+
+I was heavily inspired by NextAuth's [useSession](https://next-auth.js.org/getting-started/client) API which made things really simple!
+
+Therefore, I imitated it a little, and basically wrapped the `useGetCurrentUserQuery` in this `useSession`
+
+```typescript
+// src/utils/useSession.ts
+import { useGetCurrentUserQuery } from '@/queries/auth'
+import { useMemo } from 'react'
+
+type Session =
+  | {
+      status: 'loading' | 'unauthenticated'
+      user: undefined
+    }
+  | {
+      status: 'authenticated'
+      user: { username: string; email: string }
+    }
+
+const useSession = () => {
+  const { data, isError, isSuccess, isLoading } = useGetCurrentUserQuery()
+
+  const session: Session = useMemo(() => {
+    if (isSuccess && data.status === 'success') {
+      return {
+        status: 'authenticated',
+        user: data.user as { username: string; email: string },
+      }
+    }
+    if (isError) {
+      return { status: 'unauthenticated', user: undefined }
+    }
+    if (isLoading) {
+      return { status: 'loading', user: undefined }
+    }
+    return { status: 'unauthenticated', user: undefined }
+  }, [data, isError, isSuccess])
+
+  return session
+}
+
+export default useSession
+```
+
+I also updated the `useGetCurrentUserQuery` a little so that it doesn't just throw errors because throwing errors will make `useQuery` to refetch the queries, so let's optimize it
+
+```typescript
+// src/queries/auth.ts
+export const useGetCurrentUserQuery = () => {
+  // You might want to optimize the types a little, it's messed up
+  return useQuery({
+    queryKey: ['current-user'],
+    queryFn: async () => {
+      const response = await fetch('/api/me')
+      if (response.ok) {
+        const data = (await response.json()).user as {
+          username: string
+          email: string
+        }
+        return { status: 'success', user: data }
+      }
+      return { status: 'failure', user: null }
+    },
+  })
+}
+```
+
+No complex logic, but a simple hook can make our lives so much easier. Let's now head to `RouteGuard` and replace the query with `useSession`
+
+```typescript
+// src/components/RouteGuard.tsx
+const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
+  const router = useRouter();
+  const session = useSession();
+  const isAuthenticated =
+    Component.isPublic || session.status === "authenticated";
+
+  useEffect(() => {
+    if (!isAuthenticated && session.status !== "loading") {
+      router.push("/");
+    }
+  }, [Component, session.status]);
+
+  if (session.status === "loading" && !Component.isPublic) {
+    return "Loading...";
+  }
+
+  if (!isAuthenticated) {
+    return "You are unauthenticated to view";
+  }
+
+  return <Component {...pageProps} />;
+};
+```
+
+I don't know about you, but I certainly prefer this way more (They call it **abstraction**). You can even further improve this with `isAuthenticated`, `isUnauthenticated`, `isLoading`...
+
+Check out the complete codes from my [GitHub](https://github.com/HohShenYien/nextjs-client-authentication).
+
+_(I also added a bit more codes to show the complete process)_
+
+## Last Words
+
+As I said, the codes just work, but there are plenty of other ways too, here are some that came out of my head when I was working on this project
+
+1. **Middleware**
+
+   **Redirecting** or **blocking** users from accessing the page seems like the perfect thing for [middleware](https://nextjs.org/docs/pages/building-your-application/routing/middleware) right? And you're right!
+
+   There's one caveat though, you'd need to **verify the cookie each time user visits a page** (rather than having a cached result). If Nextjs is your backend, that'd probably be okay, but if it's not? That'd result in hundreds of requests!
+
+   Of course, I believe that there's a better way of doing it, but I'm not aware of it currently.
+
+   Also, you can use **URL pattern matching** if you use middleware instead.
+
+2. **Client-side cookies?**
+
+   I actually used client-side cookies initially, but as I said, it's susceptible to XSS attacks, so I guess it's safer to do it server-side.
+
+3. **Must I use React-Query?**
+
+   Of course not! Alternatively, there's also [SWR](https://swr.vercel.app/), or you can even implement the vanilla way without them, just that these libraries make your life simpler
+
+Beyond just plain authentication, `RouteGuard` can also be further **expanded** to verify the user's role and other parameters.
+
+Of course, all these are done on the client side, and it might be tampered with, so make sure the routes are also **well protected from the backend**!
+
+Again, here's the GitHub link: [nextjs-client-authentication](https://github.com/HohShenYien/nextjs-client-authentication).
