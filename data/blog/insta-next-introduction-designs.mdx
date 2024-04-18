@@ -1,0 +1,293 @@
+---
+title: 'Insta-Next: Introduction & Designs'
+date: '2023-04-02'
+lastmod: '2023-04-02'
+tags: ['nextjs', 'react', 'design', 'typescript']
+draft: false
+series: 'insta-next'
+summary: "Let's build a fullstack Instagram clone using Next.js, Prisma and Mantine"
+image: 70KQJhD
+---
+
+<TOCInline toc={props.toc} />
+
+Welcome to Building [Instagram](https://www.instagram.com/) Clone with Next.js series!
+
+In this first part, I'll briefly introduce what we'll be building, the tools, and set up of the project.
+
+**_Disclaimer_**: This is **not a React** tutorial, but more focusing on the overall Next.js workflow and a brief touch on other tools used.
+
+_Sneak Peek:_
+
+<ImgurImage
+  size="full"
+  imgurId="ywYTJWn"
+  format="png"
+  alt="Sneak Peek of the completed InstaNext"
+  width={800}
+  height={700}
+/>
+
+## Prerequisites
+
+It is expected for you to at least know a little about **React**, and **Tailwind**. I also used **TypeScript** extensively, but should be comprehensible for most.
+
+## Introduction to Next.js
+
+You probably know what [Next.js](https://nextjs.org/) is if you're clicking this article. Anyways, here's the description from Vercel, creator of Next.js
+
+> Used by some of the world's largest companies, Next.js enables you to create full-stack web applications by extending the latest React features, and integrating powerful Rust-based JavaScript tooling for the fastest builds.
+>
+> — Vercel Team
+
+The keywords are full-stack web applications, so yeah, it's the dream of all frontend developers, **doing backend in frontend**, making frontend programmers worthier.
+
+Jokes aside, Next.js is capable of both **frontend** and **backend** development, so you can learn a single framework to do **fullstack** development in a single code base. Also, we can build **Single Page Applications** (SPA) easily using Next.js.
+
+_Disclaimer: You still need to know things like database and design patterns to be a good backend developer._
+
+## What are We Building
+
+I'll only be implementing some of the features for this clone, but the list may expand as I go on:
+
+1. Viewing Story
+2. Post Content
+3. Follower Logic
+4. Viewing Profile
+
+That's it, more than enough for us to get started
+
+_Disclaimer: I'm not building a mobile-responsive website_
+
+## Design
+
+Since it's a fullstack application, let's go over the **entire development cycle** starting from the **design phase** including both front and back-end. Jump ahead to the next part if you wish to skip the design phase, but this part will provide a good **overview** of the app that we're building.
+
+### Frontend
+
+Most of the designs will be **taken directly** from the Instagram website (_it's a clone anyways_), but I'll doodle some **low-fidelity prototypes** to better identify the required endpoints and objects to design the backend later.
+
+<ImgurImage
+  size="full"
+  imgurId="ftMWBF6"
+  format="png"
+  alt="Low fidelity prototype of login page"
+  width={600}
+  height={300}
+/>
+
+<ImgurImage
+  size="full"
+  imgurId="ZPhuL7m"
+  format="png"
+  alt="Low fidelity prototype of homepage"
+  width={600}
+  height={300}
+/>
+
+<ImgurImage
+  size="full"
+  imgurId="cOLQFhi"
+  format="png"
+  alt="Low fidelity prototype of profile page"
+  width={600}
+  height={300}
+/>
+
+While the designs don't certainly cover every endpoint required, but they are a **good starting point**.
+
+Note that these designs also **don't cover all components**, there are still many missing parts, but our goal right now will be trying to get these basics out first.
+
+### Database
+
+From the frontend design, we can at least identify a few entities like User, Post, Story, UserFollower, and PostLike. To visualize these entities, we'll draw a **class diagram** of them:
+
+<ImgurImage
+  size="full"
+  imgurId="HGlzube"
+  format="png"
+  alt="Class diagram of the database"
+  width={600}
+  height={300}
+/>
+
+It's not the nicest diagram in the world, but it should suffice.
+
+Note that I have a special **Image** class outside, it's a polymorphic class that'll be attached to Post / Story / User, depending on the `type` field. Otherwise, it's pretty much done, we can just move on.
+
+And that's basically it, a fresh-baked class diagram ready to be used. In practice, a class diagram is quite helpful when you want to communicate the database design with others (_or otherwise others will have to guess the design from database structure / schema file, which might not necessary be bad_)
+
+## Getting Started
+
+Note: I'll be using [yarn](https://yarnpkg.com/) due to personal preference, but feel free to use pnpm or npm.
+
+I'll just set up the **frontend** here for starter, the backend will be set up in their respective articles.
+
+### Next.js template
+
+Normally, for large frameworks like Next.js, they usually provide a **starter template** that bootstraps the project with the necessary tools / configs to get started.
+
+Launch your terminal, `cd` into the folder, and let's start with the create-next-app
+
+```bash
+yarn create next-app
+```
+
+Here are the options I used
+
+1. **Project Name**: insta-next
+2. **TypeScript**: I'd recommend you try out TypeScript if you haven't, but feel free to go with vanilla JavaScript
+3. **ESLint**: Helps to identify your bad code patterns, use it if you wish to take out your bad habits
+4. **src/ directory**: It's a personal preference, and I came from a background of using src, so yes for me
+5. **app/ directory**: You can read more [here](https://www.smashingmagazine.com/2023/02/understanding-app-directory-architecture-next-js/), but since we're building a simple application, I'll skip it, plus it's still experimental anyways
+6. **import alias**: basically @/ means the root of the repository, without it, the import will be filled with "../../.." which is kinda ugly, so I added it in
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="klyKBAd"
+  format="png"
+  alt="Initializing Nextjs project"
+  width={600}
+  height={300}
+/>
+
+### Frontend
+
+I'll just set up the UI part here, the specific libraries for state management and usequery hooks will be later in their specific parts.
+
+#### Component
+
+I have decided to use [Mantine](https://mantine.dev/) because I like its **form** usage, plus it has a **carousel**, which is exactly what we're going to use. The best part is that it has tonnes of components, a perfect library. Let's set it up following the docs
+
+```bash
+yarn add @mantine/core @mantine/hooks @mantine/form @mantine/modals @mantine/nprogress @emotion/react @emotion/server @mantine/carousel @mantine/next
+```
+
+I've also added `@mantine/hooks` for utility hooks, `@mantine/modals` for modal management and `@mantine/nprogress` for the progress bar effect while transitioning.
+
+I'll set up the `_app.tsx` and `_document.tsx` following the [documentation](https://mantine.dev/guides/next/)
+
+```typescript
+// _app.tsx
+import { AppProps } from 'next/app';
+import Head from 'next/head';
+import { MantineProvider } from '@mantine/core';
+
+export default function App(props: AppProps) {
+  const { Component, pageProps } = props;
+
+  return (
+    <>
+      <Head>
+        <title>Page title</title>
+        <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
+      </Head>
+
+      <MantineProvider
+        withGlobalStyles
+        withNormalizeCSS
+        theme={{
+          /** Put your mantine theme override here */
+          colorScheme: 'light',
+        }}
+      >
+        <Component {...pageProps} />
+      </MantineProvider>
+    </>
+  );
+}
+```
+
+```typescript
+// _document.tsx
+import { createGetInitialProps } from '@mantine/next';
+import Document, { Head, Html, Main, NextScript } from 'next/document';
+
+const getInitialProps = createGetInitialProps();
+
+export default class _Document extends Document {
+  static getInitialProps = getInitialProps;
+
+  render() {
+    return (
+      <Html>
+        <Head />
+        <body>
+          <Main />
+          <NextScript />
+        </body>
+      </Html>
+    );
+  }
+}
+```
+
+#### Tailwind
+
+Yes, I know it's a bit weird to use [Tailwind](https://tailwindcss.com/) along with a component library, but the issue with current Mantine is its **lack of granularity**, like there's only xs, sm, md, lg and xl for sizes, which are insufficient for most cases. Also, Mantine allows us to use **classNames** to style the components, including the inner parts.
+
+Let's install tailwind
+
+```bash
+yarn add -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p
+```
+
+and also update the `content` in your `tailwind.config.js`, as all of the codes will lie in the src directory, this pattern will match **every React component** in it to allow Tailwind to compile CSS files from it
+
+```javascript
+// tailwind.config.js
+content: ["./src/**/*.{js,ts,jsx,tsx}"],
+```
+
+and not to forget, remember to update the `globals.css` for tailwind directives, remove everything, and add these two lines in, which will **reset all component styles** and allow us to **start using Tailwind classes**
+
+_I know I have missed component, but I'm probably not going to use it in this project, so I'm leaving it aside._
+
+```css
+@tailwind base;
+@tailwind utilities;
+```
+
+### Directory Structure
+
+Now that we're done with the libraries, it's time to organize the folders. We'll be creating the folders under `/src` directory.
+
+```plaintext
+src
+|- components  # for storing frontend components
+|- features    # for backend features
+|- pages       # page routes
+|- stores      # for state management later
+|- styles      # Global styles
+|- utils       # Utility functions if there's any
+```
+
+#### Page Routes
+
+Next.js uses [directory based routing](https://nextjs.org/docs/routing/introduction). The **location** of the page component in the `pages` folder will indicate its route. For example, `/src/pages/index.tsx` will be mapped to the route `/` and `/src/pages/auth/register.tsx` to `/auth/register`.
+
+This will make it very convenient to manage the routes compared to the traditional router page.
+
+For [dynamic routes](https://nextjs.org/docs/routing/dynamic-routes), we can wrap the parameter name with `[square_brackets]`. It can be used in both folder or component. For example, routes like `/users/shen_yien` or `/users/john_doe` will be resolved to `/src/pages/users/[username].tsx` or `/src/pages/users/[username]/index.tsx`.
+
+## Development
+
+When you run `yarn dev` and visit your `localhost:3000` you should see this
+
+<ImgurImage
+  size="full"
+  imgurId="rpsO7Tq"
+  format="png"
+  alt="Nextjs Homepage"
+  width={700}
+  height={400}
+/>
+
+Nothing's wrong there, we've removed everything from global, so naturally the styles are gone. Just hang tight there while we develop
+
+## Summary
+
+In this article, we have created a simple **low-fidelity design**, set up the necessities for our **frontend development**, and started up our development server. In the upcoming articles, we will start with the backend development.
+
+Complete codes for this part: [GitHub](https://github.com/HohShenYien/insta-next/tree/part1-frontend-setup)

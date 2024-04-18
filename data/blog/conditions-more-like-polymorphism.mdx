@@ -1,0 +1,352 @@
+---
+title: 'Conditions? More like Polymorphism'
+date: '2023-03-16'
+lastmod: '2023-03-16'
+tags: ['object-oriented', 'javascript', 'react', 'clean code', 'refactoring']
+draft: false
+summary: 'Stop repeating same conditions everywhere, use polymorphism!'
+image: VLi5FhG
+---
+
+<TOCInline toc={props.toc} />
+
+Ever repeated a condition everywhere?
+
+Maybe because you wanted to represent one value in two different formats?
+
+Maybe because you wanted to add a special value to it?
+
+Nah, stop doing that, use **Polymorphism** instead.
+
+## Polymorphism
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="avH7Etr"
+  format="png"
+  alt="Polymorphism in animals"
+  width={250}
+  height={250}
+/>
+
+A big concept in **Object Oriented Programming**. Basically, it's the scenario when you have two classes that **implement the same interface** / **extend the same class**.
+
+```typescript
+// Trivial example
+interface Animal {
+  function food(): string;
+  function sound(): string;
+}
+
+class Dog implements Animal {
+  function food() return "bone";
+  function sound() return "bark";
+}
+
+class Cat implements Animal {
+  function food() return "fish";
+  function sound() return "meow";
+}
+
+// We declare using the interface
+const aCat: Animal = new Cat();
+const aDog: Animal = new Dog();
+// Same type, but different implementation
+aDog.sound(); // bark
+aCat.sound(); // meow
+```
+
+In my own words,
+
+> Polymorphism is the different implementations in objects of the same type / class / interface.
+
+Back to the example, we can see that both `aCat` and `aDog` are `Animal` interface, but their implementations for `sound` is different because, under the hood, **they are different classes.**
+
+And that's polymorphism, usually seems pointless in trivial examples like this, let's move on with real-world applications.
+
+## Case Study: Food Delivery System
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Buug19Z"
+  format="jpeg"
+  alt="Delivery man"
+  width={300}
+  height={300}
+/>
+PS: This is a real-world example from one of my past jobs.
+
+Say, you are asked to build a food delivery system. Particularly, the UI for displaying the order time.
+
+**Requirements**: There are two modes for order time, ASAP, and datetime. Currently, the database has allocated a **string column** for it, so it should be stored as **string**.
+
+### Naive Implementation
+
+Let's go with a naive implementation
+
+```tsx
+interface DisplayDatetimeProps {
+  datetime: string;
+}
+
+const DisplayOrderTime = ({datetime}: DisplayDatetimeProps) => {
+  const dateString = datetime == "asap" ? 
+            "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+  return <Text>{dateString}</Text>
+}
+```
+
+Looks good? No, not when you have this statement spread everywhere
+
+```typescript
+const OrderSummary = () => {
+  ...
+  const dateString = datetime == "asap" ? 
+            "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+ ...
+}
+
+const OrderDatetime = () => {
+  ...
+  const dateString = datetime == "asap" ? 
+            "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+ ...
+}
+
+const  = () => {
+  ...
+  const dateString = datetime == "asap" ? 
+            "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+ ...
+}
+```
+
+What happened?
+
+You copied pasted your codes.
+
+The new intern copied pasted your codes.
+
+The other juniors copied pasted your codes.
+
+And now, the codes went viral, it's everywhere in the code base.
+
+Oh no, so what now?
+
+### Extract Function
+
+Obviously, if it's repeated, we make it a function, and that's what we call **Extract Function**!
+
+```tsx
+// utils.ts
+// Not the common part is extracted to a separate function
+export const formatDateString = (datetime: string) => {
+  return dateString = datetime == "asap" ? 
+            "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+}
+
+// DisplayOrderTime.tsx
+import {formatDateString} from "utils.ts";
+interface DisplayDatetimeProps {
+  datetime: string;
+}
+
+const DisplayOrderTime = ({datetime}: DisplayDatetimeProps) => {
+  return <Text>{formatDateString(datetime)}</Text>
+}
+```
+
+Looks much better, right? We don't have the logic spread everywhere.
+
+Let's see what happens when our codes grow. Let's say we now need a few more functions that deal with datetime here.
+
+```typescript
+export const formatDateString = (datetime: string) => {
+  return dateString = datetime == "asap" ? "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+}
+
+export const minutesFromNow(datetime: string) => {
+  return dateString = datetime == "asap" ? 0 : 
+            moment(datetime).diff(moment(), "minutes");
+}
+
+export const isWeekend(datetime: string) => {
+  const dateInMoment = datetime == "asap" ? moment() : moment(datetime);
+  const day = dateInMoment.format("ddd");
+  return day == "Sat" || day == "Sun";
+}
+
+// and 5 more as such
+```
+
+Eww, gross. The logic got spread everywhere again.
+
+While this time they're at least contained in a single file, those are still **duplicated** logics. What if instead of adding the function here, someone added a `isBefore6pm` in one of the components?
+
+How bad can this be? Look, one day, someone might have decided to switch to using `"now"` instead of `"asap"`, and it's gonna be painful changing all these.
+
+Of course, there's another alternative
+
+```typescript
+export const isAsap(datetime: string) {
+  return datetime == "asap";
+}
+
+export const formatDateString = (datetime: string) => {
+  return dateString = isAsap(datetime) ? "ASAP" : 
+            // the format is Wed, 16th Mar
+            moment(datetime).format("ddd, Do MMM");
+}
+```
+
+While this does reduce the duplication somewhat, personally, I dislike how the conditions get thrown all around, **duplicating the logical checking** everywhere.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="cj4vngA"
+  format="png"
+  alt="Polymorphism saves the day"
+  width={300}
+  height={300}
+/>
+
+Fret not, **polymorphism** is here to save us!
+
+### Polymorphism
+
+Let's build the classes. We'll need two concrete classes for asap type, and for normal datetime type, and a parent interface for both.
+
+```typescript
+interface OrderDatetime {
+  formatDate(format?: string): string;
+  minutesFromNow(): number;
+  isWeekend(): boolean;
+  toString(): string; // let's add this for serialization purpose
+}
+export class AsapOrderDatetime {
+  formatDate() {
+    return "ASAP";
+  }
+  minutesFromNow() {
+    return 0;
+  };
+  isWeekend() {
+    const day = moment().format("ddd");
+    return day == "Sat" || day == "Sun";
+  };
+  toString() {
+    return "asap";
+  }
+}
+
+export class NormalOrderDatetime {
+  datetime: Moment;
+  constructor(datetime: string) {
+    this.datetime = moment(datetime);
+  }
+  formatDate(format = "ddd, Do MMM") {
+    return datetime.format(format);
+  }
+  minutesFromNow() {
+    return datetime.diff(moment(), "minutes");
+  };
+  isWeekend() {
+    const day = datetime.format("ddd");
+    return day == "Sat" || day == "Sun";
+  };
+  toString() {
+    return datetime.toISOString();
+  }
+}
+```
+
+And to actually start using these, we will need to depend on a **Factory** to help instantiate these objects to hide the implementations from the users.
+
+```typescript
+export default orderDatetimeFactory(datetime: string): OrderDatetime  {
+  return datetime == "asap" ? new AsapOrderDatetime () : 
+    new NormalOrderDatetime(datetime);
+}
+```
+
+And here's the only place where the boolean check appears.
+
+Let's see how the component looks like now
+
+```tsx
+interface DisplayDatetimeProps {
+  datetime: OrderDatetime;
+}
+
+const DisplayOrderTime = ({datetime}: DisplayDatetimeProps) => {
+  return <Text>{datetime.format()}</Text>
+}
+```
+
+Short and concise, exactly how we like it to be!
+
+And this, is how we use **polymorphism**.
+
+## Bonus: Persistent State Management?
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="sMWCYEa"
+  format="png"
+  alt="Good ol' Zustand"
+  width={400}
+  height={400}
+/>
+
+Some of you might be wondering, how can we use this polymorphism if we need to persist the data into, like browser's localstorage?
+
+Well, look back up, I've included a `toString()` method for exactly that purpose. I'll show how can it be used in my favorite state management library: [**zustand**](https://github.com/pmndrs/zustand)
+
+```typescript
+interface OrderStore {
+  _datetime: string;
+  readonly datetime: OrderDatetime;
+  setOrderDatetime: (datetime: string) => void:
+}
+
+export const useOrderStore = create(OrderStore)(
+  persist(
+    (set, get): OrderStore => ({
+      _datetime: "asap",
+      // IMPORTANT
+      get datetime: () => {
+        return orderDatetimeFactory(get()._datetime);
+      },
+      setOrderDatetime: (datetime: string): void => {
+        set(() => ({
+          _datetime: datetime,
+        }));
+      },
+    }),
+    {
+      name: "Order",
+      getStorage: () => localStorage, // Persistent storage
+    }
+  )
+);
+```
+
+What I did was **hide** the internal datetime string, and always return a `OrderDatetime` object. And that's it! Zustand will store the string representation in browser, but what you get is always the object.
+
+## Last Words
+
+I came across this amazing technique when I was reading Martin Fowler's [Refactoring](https://martinfowler.com/books/refactoring.html). More specifically, this technique is called **Replace Conditional with Polymorphism**.
+
+Now that you know about this technique, let's make the programming world better together 🤩

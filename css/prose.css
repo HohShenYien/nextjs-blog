@@ -1,3 +1,19 @@
+.prose p {
+  font-size: 1.1rem;
+}
+
+.prose h2 {
+  font-size: 1.8rem;
+}
+
+.prose h3 {
+  font-size: 1.5rem;
+}
+
+.prose h4 {
+  font-size: 1.2rem;
+}
+
 .prose a {
   @apply text-primary-500 hover:text-primary-600 dark:text-primary-300 dark:hover:text-primary-400;
   background: linear-gradient(0, theme('colors.primary.600'), theme('colors.primary.600')) no-repeat
@@ -48,4 +64,21 @@
 }
 .prose pre code {
   @apply bg-primary-950/20 text-primary-50;
+}
+
+.prose strong:hover,
+.dark .prose strong:hover {
+  background-size: 100% 12px;
+}
+
+.prose strong {
+  text-decoration: none;
+  transition: background-size 200ms;
+  background: linear-gradient(0, theme('colors.primary.200'), theme('colors.primary.200')) no-repeat
+    right bottom / 100% 8px;
+}
+
+.dark .prose strong {
+  background: linear-gradient(0, theme('colors.primary.900'), theme('colors.primary.900')) no-repeat
+    right bottom / 100% 8px;
 }

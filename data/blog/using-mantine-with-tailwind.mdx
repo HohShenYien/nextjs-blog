@@ -4,10 +4,11 @@ date: '2023-08-25'
 lastmod: '2023-08-25'
 tags: ['react', 'mantine-ui', 'tailwind', 'frontend']
 draft: false
-series: 'life-beyond-codes'
 summary: 'Wondering how to use Tailwind classes in Mantine components? This is the article you need.'
 image: pxNF0kz
 ---
+
+<TOCInline toc={props.toc} />
 
 _Check out my_ [_next-power-starter_](https://github.com/HohShenYien/next-power-starter) _to quickly get started with Mantine & Tailwind with opinionated configurations!_
 
@@ -98,14 +99,14 @@ yarn add @mantine/core @mantine/hooks @emotion/react
 
 Finally, add the necessary theme provider in `_app.tsx`, the codes are taken from the [documentation](https://mantine.dev/guides/next/).
 
-```typescript
+```tsx
 // _app.tsx
-import { AppProps } from 'next/app';
-import Head from 'next/head';
-import { MantineProvider } from '@mantine/core';
+import { AppProps } from 'next/app'
+import Head from 'next/head'
+import { MantineProvider } from '@mantine/core'
 
 export default function App(props: AppProps) {
-  const { Component, pageProps } = props;
+  const { Component, pageProps } = props
 
   return (
     <>
@@ -125,7 +126,7 @@ export default function App(props: AppProps) {
         <Component {...pageProps} />
       </MantineProvider>
     </>
-  );
+  )
 }
 ```
 
@@ -157,7 +158,7 @@ That's because, for me, **Tailwind fills in the gap of Mantine**, and **Mantine 
 
    Mantine gives you the power to use **CSS classes** or even **CSS-in-JS** to style any part of the component. For example, you can even use CSS selectors
 
-   ```typescript
+   ```tsx
    <Button
      leftIcon={<IconBrandTwitter size={rem(18)} />}
      styles={(theme) => ({
@@ -192,7 +193,7 @@ That's because, for me, **Tailwind fills in the gap of Mantine**, and **Mantine 
 
    The best part is that Mantine does so **without having to burden us** users with nested components like Headless UI
 
-   ```typescript
+   ```tsx
    // https://headlessui.com/react/listbox
    <Listbox value={selected} onChange={setSelected}>
      <div className="relative mt-1">
@@ -243,7 +244,7 @@ That's because, for me, **Tailwind fills in the gap of Mantine**, and **Mantine 
 
    This is one of my favorites, unlike other component libraries that typically rely on [React Hook Form](https://www.react-hook-form.com/) for form validation, Mantine provides its own [use-form hook](https://mantine.dev/form/use-form/) out of the box!
 
-   ```typescript
+   ```tsx
    // example using Zod library
    import { z } from "zod";
 
@@ -305,7 +306,7 @@ That's because, for me, **Tailwind fills in the gap of Mantine**, and **Mantine 
 
    We all love CSS, yes. However, I don't really like CSS in JS, when Tailwind is present, like look at this
 
-   ```typescript
+   ```tsx
    // https://mantine.dev/core/tabs/#unstyled-tabs
    function StyledTabs(props: TabsProps) {
      return (
@@ -357,12 +358,10 @@ Corresponding to the two points above,
    Compared to CSS-in-JS, I prefer Tailwind classes, it's like reading variables, and more **comprehensible**.  
    Of course, **long Tailwind classes are bad**, so you still need to somewhat plan your classnames properly.
 
-   ```typescript
+   ```tsx
    // typical buttons with very very long classnames
    // which is kinda ugly
-   <button
-     className="inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-">
-   </button>
+   <button className="hover:bg-gray- inline-flex justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300"></button>
    ```
 
 ## Tweaks
@@ -400,7 +399,7 @@ You can see that the Mantine's background colors are **overridden** by Tailwind'
 
 To fix that, you will first need to disable Tailwind's Preflight in `tailwind.config.js`
 
-```typescript
+```javascript
 // tailwind.config.js
 module.exports = {
   corePlugins: {
@@ -416,7 +415,7 @@ You can always download a raw copy of the [preflight](https://unpkg.com/tailwind
 
 Of course, don't forget to include the updated `preflight.css` in your `_app.tsx`
 
-```typescript
+```tsx
 // _app.tsx
 import '@/styles/preflight.css'
 ```
@@ -470,7 +469,7 @@ const theme: MantineThemeOverride = {
 export default theme;
 ```
 
-```typescript
+```tsx
 // _app.tsx
 import theme from "@/styles/MantineTheme";
 ...
@@ -486,18 +485,16 @@ Check out the complete Tailwind colors in Mantine [here](https://github.com/HohS
 
 When it comes to **conditional classes**, e.g., div needs to be red if `variable` is 1 or green otherwise? Typically, this is done using a **ternary operator** like this
 
-```typescript
-<div className={variable === 1 ? "bg-red-400" : "bg-green-400"}>
-</div>
+```tsx
+<div className={variable === 1 ? 'bg-red-400' : 'bg-green-400'}></div>
 ```
 
 But what if the condition is complex? Say in addition to the condition above, you wanna make the div orange if it's 2
 
-```typescript
+```tsx
 <div
-  className={variable === 1 ? "bg-red-400" :
-                variable === 2 ? "bg-orange-400" : "bg-green-400"}>
-</div>
+  className={variable === 1 ? 'bg-red-400' : variable === 2 ? 'bg-orange-400' : 'bg-green-400'}
+></div>
 ```
 
 Kinda messy right? Imagine having more conditions and classes, it's going to be insane!
@@ -508,28 +505,28 @@ But yeah, basically Tailwind, as it is, will be really **messy**, so what to do?
 
 Not an additional package, you can import directly from Mantine/core
 
-```typescript
+```tsx
 import { clsx } from 'mantine/core'
 ```
 
 Simply pass the classnames as keys, and the boolean variable as value, clsx will parse it into the right string
 
-```typescript
+```tsx
 <div
-  className={clsx({"bg-red-400": variable === 1,
-                    "bg-orange-400": variable === 2,
-                    "bg-green-400": variable !== 1 && variable !== 2})}>
-</div>
+  className={clsx({
+    'bg-red-400': variable === 1,
+    'bg-orange-400': variable === 2,
+    'bg-green-400': variable !== 1 && variable !== 2,
+  })}
+></div>
 ```
 
 It is somewhat longer, but it's more readable.
 
 `clsx` is always a handy function to use everywhere, it can also help **concatenate the classes** from arrays, string literals, variables, and objects:
 
-```typescript
-<div
-  className={clsx("bg-red-400", someVar, {"bg-red-400": variable === 1})}>
-</div>
+```tsx
+<div className={clsx('bg-red-400', someVar, { 'bg-red-400': variable === 1 })}></div>
 ```
 
 ### Targeting Subclasses
@@ -549,7 +546,7 @@ For example, looking at the tabs, you might want to only color the texts and not
 
 Notice that there's a `tabLabel` in the class? `(the last string)` Yupp, that's the target class for classnames, so to set the colors for the texts
 
-```typescript
+```tsx
 // pass the tailwind classes as values to the target keys
 <Tabs classNames={{tabLabel: "text-red-400"}}>
 ```

@@ -10,7 +10,6 @@ import Link from '@/components/Link'
 import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import yearData from 'app/year-data.json'
-import Image from '@/components/Image'
 import ImgurImage from '@/components/ImgurImage'
 
 interface PaginationProps {
@@ -135,7 +134,7 @@ export default function ListLayoutWithYears({
                           height={190}
                           width={360}
                           format={'jpeg'}
-                          size="medium thumbnail"
+                          size="huge thumbnail"
                           className="aspect-[1.91] w-full lg:my-3 lg:w-[240px]"
                         />
                       </Link>

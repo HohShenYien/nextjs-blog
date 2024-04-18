@@ -1,0 +1,145 @@
+---
+title: 'Two Sum'
+date: '2023-01-07'
+lastmod: '2023-01-07'
+tags: ['python', 'leetcode']
+draft: false
+summary: Let's solve the very first problem of Leetcode using Hashmap through Python!
+image: dPMXTa4
+series: leetcode
+---
+
+<TOCInline toc={props.toc} />
+
+Leetcode problem: [https://leetcode.com/problems/two-sum/](https://leetcode.com/problems/two-sum/)
+
+## Problem Statement
+
+Given an array of integers `nums` and an integer `target`, return *indices of the two numbers such that they add up to* `target`.
+
+You may assume that each input would have ***exactly* one solution**, and you may not use the *same* element twice.
+
+You can return the answer in any order.
+
+### Example 1:
+
+```plaintext
+Input: nums = [2,7,11,15], target = 9
+Output: [0,1]
+Explanation: Because nums[0] + nums[1] == 9, we return [0, 1].
+```
+
+### Example 2:
+
+```plaintext
+Input: nums = [3,2,4], target = 6
+Output: [1,2]
+```
+
+## Example 3:
+
+```plaintext
+Input: nums = [3,3], target = 6
+Output: [0,1]
+```
+
+## Constraints:
+
+* <p><code>2 \<\= nums.length \<\= 10<sup>4</sup></code></p>
+    
+* <p><code>-10<sup>9</sup> \<\= nums[i] \<\= 10<sup>9</sup></code></p>
+    
+* <p><code>-10<sup>9</sup> \<\= target \<\= 10<sup>9</sup></code></p>
+    
+* **Only one valid answer exists.**
+    
+
+## Discussion
+
+### Concepts
+
+* **Hashmap** - Notice that we are essentially **searching** for a pair of numbers, and since we don't want to **reiterate the whole array** for the other pair of every number, we will store the numbers we come across in a hashmap to optimize lookup time.
+    
+
+### Brute Force Attempt
+
+We are basically going to **iterate through every pair** of numbers to find the pair that adds up to the `target`.
+
+```python
+def bruteForce(nums, target):
+    for i in range(len(nums)):
+        for j in range(i + 1, len(nums)):
+            if nums[i] + nums[j] == target:
+                return [i, j]
+```
+
+That's it.
+
+The number of iterations will be
+
+$$n + (n - 1) + (n-2) + \dots + 1 \\\\ = \sum^{x=n}_{1}x \\\\ = \frac{n ^ 2 + n}{2} \\\\ = O(n^2)$$
+
+So the time complexity is $O(n^2)$
+
+## Optimal Approach
+
+### Idea
+
+Rather than summing them up, **subtraction** is the way to go.
+
+Let's look at **Example 1** again
+
+```plaintext
+Input: nums = [2,7,11,15], target = 9
+```
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="2If5tB2"
+  format="jpg"
+  alt="Visualization of the algorithm"
+  width={500}
+  height={500}
+/>
+
+So, the idea is to find the **other pair** for every number. To avoid repetition, we will store every number in a **hashmap**.
+
+Hence, this is the step:
+
+1. For every number, we check if its pair exists in `hashmap`.
+    
+2. If yes, we are done.
+    
+3. If not, we will store the number and the index into our `hashmap`
+    
+4. Repeat for the next number.
+    
+
+### Codes
+
+```python
+class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        hashmap = {}
+        for i in range(len(nums)):
+            diff = target - nums[i]
+            if diff in hashmap:
+                return [hashmap[diff], i]
+            hashmap[nums[i]] = i
+```
+
+## Analysis
+
+### Time Complexity
+
+Looking at the codes, we are only **iterating through the array once**, hence, the time complexity is \\(O(n)\\)
+
+### Space Complexity
+
+Likewise, we can see that we are storing every number in our `hashmap` at worst case, hence the space complexity is \\(O(n)\\) as well.
+
+## Last Words
+
+This is arguably one of the easiest (if not the easiest) problems on Leetcode and many people's first problems.
+
+While it is simple, it presented a very good point on optimization through hashmap. It's a simple tradeoff between space and time complexity where we achieve a **balance between time and space complexity**.

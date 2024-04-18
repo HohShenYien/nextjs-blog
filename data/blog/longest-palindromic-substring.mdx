@@ -1,0 +1,488 @@
+---
+title: 'Longest Palindromic Substring'
+date: '2022-12-26'
+lastmod: '2022-12-26'
+tags: ['python', 'leetcode']
+draft: false
+summary: Let's find the longest palindromic substring using Dynamic Programming through Python!
+image: WwsT87H
+series: leetcode
+---
+
+<TOCInline toc={props.toc} />
+
+Leetcode problem: [https://leetcode.com/problems/longest-palindromic-substring/description/](https://leetcode.com/problems/longest-palindromic-substring/description/)
+
+## Problem Statement
+
+Given a string `s`, return the longest palindromic substring in `s`.
+
+### **Example 1**
+
+```plaintext
+Input: s = "babad"
+Output: "bab"
+Explanation: "aba" is also a valid answer.
+```
+
+### **Example 2**
+
+```plaintext
+Input: s = "cbbd"
+Output: "bb"
+```
+
+**Constraints:**
+
+* `1 <= s.length <= 1000`
+    
+* `s` consist of only digits and English letters.
+    
+
+### Note
+
+**Palindrome** refers to a string that **reads the same forward and backward**, the reverse of the string is the same as the string, e.g., hoh, aba, abba…
+
+## Discussion
+
+### Concepts
+
+The concepts in this question are slightly more implicit, but the keyword is on palindrome itself
+
+1. **Dynamic Programming** - Look at any of the palindromes, you’d find that ***the central substring*** of a palindrome is also a palindrome! e.g., in `abcba`, `bcd` and `c` are both palindromes. In other words, we can determine if a string is palindromic by **checking if its substring is palindromic**, and this is the pattern of Dynamic programming: **Solving a problem by solving subproblems**.
+    
+
+### Brute Force Attempt
+
+To easily solve the problem, we can just examine all the substrings of `s` and check for the longest palindrome.
+
+1. Iterating all substrings which will require $O(n^2)$ time complexity:
+    
+    ```python
+    longest = ""
+    for i in range(len(s)):
+        for j in range(i + 1, len(s)):
+            substring = s[i:j]
+        if (isPalindrome(substring)) and len(substring) > len(longest):
+            longest = substring
+    ```
+    
+2. Checking if a string is palindromic:
+    
+    ```python
+    def isPalindrome(s):
+        return s == s[::-1]
+    ```
+    
+    Of course, to save time, you can just check half of the string, but $O(n/2) \thickapprox O(n)$, so yeah
+    
+
+The time complexity of this brute force attempt is $O(n^3)$, for details, please refer to [here](https://blogs.shenyien.cyou/longest-substring-without-repeating-characters#heading-brute-force-attempt) as the methods are similar.
+
+## Optimal Approach 1 (Dynamic Programming)
+
+In the discussion, I mentioned solving the **subproblems**, so let’s write it out clearly:
+
+### Idea
+
+> A substring, `s[left:right + 1]` (substring from index ***left*** to ***right***, inclusive) is a palindrome if and only if `s[left + 1 : right]` (substring from index ***left + 1*** to ***right - 1***, inclusive) is palindrome and `s[left] == s[right]`.
+
+Furthermore, there’ll be two base conditions:
+
+1. `s[left:right + 1]` is a substring if `left == right`, one character strings are palindromic.
+    
+2. `s[left:right + 1]` is a substring if `s[left] == s[right]` and `right - left == 1`, two character strings are palindromic if both characters are the same
+    
+
+For other cases, we can apply the idea and build upon the base conditions.
+
+### Examples
+
+Here are two examples of the idea.
+
+#### Example 1
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Zv5dUZS"
+  format="png"
+  alt="Demonstrating the idea"
+  width={500}
+  height={400}
+/>
+
+#### Example 2
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="KWPPYmC"
+  format="png"
+  alt="Demonstrating the idea"
+  width={500}
+  height={400}
+/>
+### Recursion Approach (Brute Force)
+
+Let’s implement this idea using the recursion approach:
+
+```python
+def recurseIsPalindrome(s, left, right):
+    if left == right:
+        return True
+    elif right - left == 1:
+        return s[left] == s[right]
+    else:
+        return s[left] == s[right] and recurseIsPalindrome(s, left + 1, right - 1)
+
+def solution1Bad():
+    s = "ebababd"
+    longest = ""
+    for right in range(len(s)):
+        for left in range(right + 1):
+            if recurseIsPalindrome(s, left, right) and right - left + 1 > len(longest):
+                longest = s[left : right + 1]
+
+    return longest
+```
+
+So what about it? It’s basically reimplementing the initial brute force attempt using recursion, and it has the same time complexity of $O(n^3)$. However, we can build upon this by using Dynamic Programming: We store the previous results.
+
+Notice that there have been some repetitions, e.g.,
+
+1. `left = 1` and `right = 5`. To check if the substring `“babab”` is a palindrome, we examine substrings `“aba”` and `“b”`.
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="ZIxuaOT"
+        format="png"
+        alt="Demonstrating the recursion approach"
+        width={400}
+        height={400}
+        />
+    
+2. `left = 2` and `right = 4`. To check if the substring `“bab”` is a palindrome, we examine substrings `“a”`.
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="pEd2xot"
+        format="png"
+        alt="Repetition"
+        width={500}
+        height={300}
+        />
+    
+
+Notice the repetition? I’ve examined `“aba”` in (1), but I’m examining `“aba”` again in (2).
+
+### Tabulation Method
+
+This is where we will be optimizing, we will cache the results through the **tabulation method** from Dynamic Programming.
+
+To achieve this, for every pair of `[left, right]` we came across, we will **cache the results** for a later lookup.
+
+One way to do it is through hashmap, but since we know the exact size, array will be a better approach to reduce space usage:
+
+```python
+class Solution:
+    def longestPalindrome(self, s: str) -> str:
+            ## The "cache"
+            dp = [[False] * len(s) for _ in range(len(s))]
+            res = ""
+            for right in range(len(s)):
+                for left in range(right + 1):
+                    ## Reimplementing recurseIsPalindrome using cache
+                    if right == left:
+                        dp[right][left] = True
+                    elif right == left + 1:
+                        dp[right][left] = s[right] == s[left]
+                    else:
+                        dp[right][left] = dp[right - 1][left + 1] and s[right] == s[left]
+                    if dp[right][left] and right - left + 1 > len(res):
+                        res = s[left:right + 1]
+            return res
+```
+
+Notice the similarity of this with the recursion approach? That’s the idea.
+
+Here’s how the table will be filled up from the algorithm:
+
+1. From our first condition, all **single character strings** (the diagonal) are palindrome, let’s fill them with True:
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="AA8Zkbz"
+        format="png"
+        alt="Tabulating from the diagonal"
+        width={500}
+        height={500}
+        />
+    
+2. Next, we look at the second condition, two characters strings (the second diagonal), where `right == left + 1`, they are palindrome if `s[right] == s[left]`:
+    
+    *(somehow all are False)*
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="23bxNGB"
+        format="png"
+        alt="The second diagonal"
+        width={500}
+        height={400}
+        />
+    
+3. Finally, we look at last condition, the box will be True if `dp[right -1][left + 1]`(that's it, the top right box) is True, and `s[right] == s[left]`:
+
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="afvX4Wc"
+        format="png"
+        alt="Filling up the remaining"
+        width={500}
+        height={400}
+        />
+            
+4. And so on…
+    
+
+Note that understanding the table might or might not help in understanding the algorithm, they’re just illustrations.
+
+### Analysis
+
+#### Time Complexity
+
+As shown in the table, we are only filling up the bottom left portion of the table, hence it will be $O(n^2 / 2) \thickapprox O(n^2)$
+
+**Of course, the easier way to see is that the for loop is only nested for one level**
+
+#### Space Complexity
+
+We have initialized a list / array of size $n \times n$ , hence the space complexity is $O(n^2)$ as well.
+
+### Improving Space Complexity
+
+It’s common in dynamic programming to improve the space complexity two **using only two rows**.
+
+Notice from the diagrams that I’ll only be **referring to data from the previous row**? Thus, we will only store the data of **current and previous rows**.
+
+To do this, we will **alternate between two rows**, we will use row 1 if it is in an odd iteration, and row 0 if it is in an even iteration.
+
+```python
+class Solution:
+    def longestPalindrome(self, s: str) -> str:
+        dp = [[False] * len(s) for _ in range(2)]
+
+        res = ""
+        for right in range(len(s)):
+            cur = right % 2 == 0
+            for left in range(right + 1):
+                if right == left:
+                    dp[cur][left] = True
+                elif right == left + 1:
+                    dp[cur][left] = s[right] == s[left]
+                else:
+                    dp[cur][left] = dp[not cur][left + 1] and s[right] == s[left]
+                if dp[cur][left] and right - left + 1 > len(res):
+                    res = s[left:right + 1]
+        return res
+```
+
+Basically, `not cur` refers to the previous row while `cur` is the current row.
+
+That’s it, by using a simple trick, we could easily trim down our space complexity from $O(n^2)$ to $O(n)$, and here’s the performance after optimization:
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="nsCmUz8"
+  format="png"
+  alt="Leetcode performance"
+  width={600}
+  height={300}
+/>
+
+## Optimal Approach 2
+
+On the other hand, the second approach is more trivial and straightforward. The idea is that instead of shrinking from outside in, we **expand inside out**.
+
+### Idea
+
+How does it work? We will treat every character in a string as a center of a palindrome, and find the largest palindrome from there.
+
+To put it simply, rather than checking from two ends, we check **from the center**, and get the longest palindrome from this center.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="SNamqoy"
+  format="png"
+  alt="Demonstrating expanding from center out"
+  width={600}
+  height={300}
+/>
+
+However, our center might be two characters as well. In this case, we will assume the center to be in between two characters.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="eTeLZZG"
+  format="png"
+  alt="Demonstrating expanding from center out"
+  width={600}
+  height={400}
+/>
+
+### Implementation
+
+The ideas can be implemented through the following steps:
+
+1. Iterate through every character in the string.
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="EuTdsH9"
+        format="png"
+        alt="Iterating"
+        width={600}
+        height={300}
+        />
+            
+2. Expand from the point:
+    
+    1. Every character is a center
+        
+        <ImgurImage
+            size="large thumbnail"
+            imgurId="rl1YZSp"
+            format="png"
+            alt="Showing the center"
+            width={600}
+            height={300}
+            />
+        
+    2. The point between the current character and the next character is a center
+        
+        <ImgurImage
+            size="large thumbnail"
+            imgurId="0LAP979"
+            format="png"
+            alt="Center in between"
+            width={600}
+            height={300}
+            />
+        
+3. Compare and get the longest substring from 2(a) and 2(b)
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="lXs01aC"
+        format="png"
+        alt="Comparison"
+        width={600}
+        height={300}
+        />
+            
+
+However, it’ll be difficult to represent the concept of ***center between the characters***, hence, left & right pointers will be used. They will be implemented slightly differently:
+
+1. For scenario 2(a) - `left = center = right`
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="7kMPFuw"
+        format="png"
+        alt="left and right pointers"
+        width={600}
+        height={300}
+        />
+    
+2. For scenario 2(b) - `left = right of center` and `right = left of center`
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="pokvRzO"
+        format="png"
+        alt="Left and right pointers"
+        width={600}
+        height={300}
+        />
+    
+    You must be wondering if I wrote it wrongly, no, in fact I didn’t.
+    
+    This is to ensure that the initial string of palindrome, `s[left: right + 1] == “”`, and not `“dd”` as the initial pair of characters may not always be palindromic, e.g., `“db”`.
+    
+
+And finally, here’s the codes
+
+```python
+def expandFromCenter(s, left, right):
+    leftP, rightP = left, right
+    # Making sure that it's still within the boundary
+    while leftP > 0 and rightP < len(s) - 1 and s[leftP - 1] == s[rightP + 1]:
+        leftP -= 1
+        rightP += 1
+    return rightP - leftP
+
+class Solution:
+    def longestPalindrome(self, s: str) -> str:
+        res = ""
+        for center in range(len(s)):
+            onePointCenter = expandFromCenter(s, center, center)
+            twoPointCenter = expandFromCenter(s, center + 1, center)
+            best = max(onePointCenter, twoPointCenter)
+            if best + 1 > len(res):
+                isTwoPoint = best % 2 == 1
+                leftEnd = center - best // 2
+                rightEnd = center + best // 2 + isTwoPoint
+                res = s[leftEnd:rightEnd + 1]
+        return res
+```
+
+I believe the only doubt here is on the `isTwoPoint`.
+
+So let’s look back at both scenarios, and notice that scenario (1) will always result in even best while scenario (2) will result in odd best. (`best = length - 1 = right - left`)
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Kv3mAJI"
+  format="png"
+  alt="Example"
+  width={600}
+  height={300}
+/>
+
+Hence, for scenario (1), the `leftEnd` and `rightEnd` is simply $center \pm best / 2$.
+
+(*as best / 2 is the distance from the center to the end*)
+
+However, it’s a bit tricky for scenario (2). Note the distance from ***center*** to left and the right end is `best / 2 + 1` since `best` is odd, and we are doing floor division. Besides, from the codes, our `center` is always the left character of the ***center point***. Thus, the `leftEnd` remains `center - best / 2`.
+
+*(without the need of + 1, as it's already on the left side)*
+
+### Analysis
+
+#### Time Complexity
+
+`expandFromCenter` operation is O(n), and iterating the string is $O(n)$. Since we do `expandFromCenter` in every iteration, the resulting time complexity is $O(n^2)$.
+
+#### Space Complexity
+
+As we only store pointers, it can be said that space complexity is $O(1)$.
+
+Of course, the improvement is provided on the assumption that the result `res` is not taken into account, otherwise, it will remain the same as O(n) as `res` can have the same length as `s`.
+
+Oh and here's the performance on Leetcode using this approach:
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="hehkrQQ"
+  format="png"
+  alt="Performance of the second approach"
+  width={700}
+  height={300}
+/>
+
+## Last Words
+
+This problem represents a typical dynamic **programming** style problem. Hence, for those who have not learned about DP, solution 1 might be more challenging. Nonetheless, solution 2 should be friendly to most.
+
+Lastly, there’s also a more advanced and very specific $O(n)$ algorithm that solves this particular problem.
+
+If you’re interested, you can check out Wikipedia and this amazing [article](https://hackernoon.com/manachers-algorithm-explained-longest-palindromic-substring-22cb27a5e96f) on it. (*though I felt like the codes provided by the article is incorrect*)

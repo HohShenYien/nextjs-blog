@@ -1,0 +1,1343 @@
+---
+title: 'Insta-Next: Improving UI with Mantine and Tailwind'
+date: '2023-04-05'
+lastmod: '2023-04-05'
+tags: ['nextjs', 'react', 'tailwind', 'mantine-ui']
+draft: false
+series: 'insta-next'
+summary: "It's time to improve the app's UI with Tailwind and Mantine. We will also employ Next.js layout on the application."
+image: di3RcUA
+---
+
+<TOCInline toc={props.toc} />
+
+> If you are looking for guides on using Mantine & Tailwind, check out this [article](/using-mantine-with-tailwind) instead.
+
+In this part, we will start to make InstaNext looks better with **Tailwind** and **Mantine UI**. Along the way, I'll make use of Next.js's [layout feature](https://nextjs.org/docs/basic-features/layouts) to build reusable layouts.
+
+If you decided to skip to this part, no worry, I got you covered. You can download the work from the last part [here](https://github.com/HohShenYien/insta-next/tree/part3-api-usequery).
+
+_Sneak Peek:_
+
+<ImgurImage
+  size="full"
+  imgurId="ywYTJWn"
+  format="png"
+  alt="Sneak Peek of the completed InstaNext"
+  width={800}
+  height={700}
+/>
+
+## Sidebar
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="VxLqgET"
+  format="png"
+  alt="The sidebar of Instagram"
+  width={400}
+  height={600}
+/>
+
+Instagram has this nice sidebar that will appear in every page _(aside from login and register, we will
+get to there next part)_, let's build it!
+
+Following our rough design from **part 1**, we will have **5 links** in total, with the brand on top. Let's get to work.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="2OHFQPk"
+  format="png"
+  alt="High fidelity design of the InstaNext"
+  width={700}
+  height={500}
+/>
+
+First, we will create a 244px div _(inspected from Instagram)_, and lay out the buttons accordingly.
+It will also have a fixed position on the left with full height
+
+```tsx
+import { Button } from "@mantine/core";
+import Link from "next/link";
+
+const links = [
+  { name: "Home", route: "/" },
+  { name: "Search", route: "/search" },
+  { name: "Create", route: "/new" },
+  // we will update the route to use user name in next part
+  { name: "Profile", route: "/profile" },
+];
+
+const SideBar = () => {
+  return (
+    <div className="w-[244px] fixed left-0 top-0 h-full">
+      {links.map((link, index) => (
+        <Link key={index} href={link.route}>
+          <!-- Here's the Mantine button, subtle variant makes it -->
+          <!-- only show the background color when hovering -->
+          <Button variant="subtle" fullWidth>
+            {link.name}
+          </Button>
+        </Link>
+      ))}
+    </div>
+  );
+};
+
+export default SideBar;
+```
+
+Let's add it to our `pages/index.tsx`, and to avoid **covering our main content**, we will add padding to `<main>` for now
+
+```tsx
+...
+      <main className="pl-[280px]">
+        <SideBar />
+        <div>
+          {posts.isSuccess &&
+            posts.data.posts.map((post, index) => (
+              <Post post={post} key={index} />
+            ))}
+        </div>
+      </main>
+...
+```
+
+And it actually looks quite like what we're looking for!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="Ir0KOd2"
+  format="png"
+  alt="Listing out the images"
+  width={700}
+  height={500}
+/>
+
+### Buttons
+
+To actually mimic Instagram's buttons, I'll add some **padding** and **border-radius**, **left-align** the buttons, and **follow the colors**. However, I noticed that Mantine's button has a fixed height and that's annoying, so I switched over to the normal button
+
+```tsx
+const SideBar = () => {
+  return (
+    <div className="fixed left-0 top-0 h-full w-[244px] border-r-[1px] border-solid border-gray-300 px-4 py-6">
+      <div className="space-y-2">
+        {links.map((link, index) => (
+          <Link key={index} href={link.route} className="block">
+            <button
+              className="flex w-full rounded-full p-3 transition-all hover:bg-gray-100"
+              color="gray"
+            >
+              <span className="font-normal text-black">{link.name}</span>
+            </button>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+Now it looks a lot better, but one thing is still missing, the icons.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="1iZ2rKj"
+  format="png"
+  alt="First draft of the sidebar"
+  width={400}
+  height={500}
+/>
+
+I decided to just use the icons from [React-Icons](https://react-icons.github.io/react-icons) since Instagram's
+icons showed a lot of variants
+
+```bash
+yarn add @ant-design/icons@4.0.0
+```
+
+Then, I just browsed around to find the icons that look the most similar to the ones on Instagram and added them to the link.
+
+_Disclaimer: It's a bad UI to use icons from different styles because they don't look consistent, but this is a clone, so consistency is not as important_
+
+```tsx
+import { AiOutlineHome, AiFillHome, AiOutlineSearch } from 'react-icons/ai'
+import { ImSearch } from 'react-icons/im'
+import { BsPlusSquare, BsFillPlusSquareFill } from 'react-icons/bs'
+import { RiUser3Line, RiUser3Fill } from 'react-icons/ri'
+import Link from 'next/link'
+
+const links = [
+  { name: 'Home', route: '/', IconLine: AiOutlineHome, IconFilled: AiFillHome },
+  {
+    name: 'Search',
+    route: '/search',
+    IconLine: AiOutlineSearch,
+    IconFilled: ImSearch,
+  },
+  {
+    name: 'Create',
+    route: '/new',
+    IconLine: BsPlusSquare,
+    IconFilled: BsFillPlusSquareFill,
+  },
+  // we will update the route to use user name in next part
+  {
+    name: 'Profile',
+    route: '/profile',
+    IconLine: RiUser3Line,
+    IconFilled: RiUser3Fill,
+  },
+]
+
+const SideBar = () => {
+  return (
+    <div className="fixed left-0 top-0 h-full w-[244px] border-r-[1px] border-solid border-gray-300 px-4 py-6">
+      <div className="space-y-2">
+        {links.map((link, index) => (
+          <Link key={index} href={link.route} className="block">
+            <button
+              className="flex w-full items-center space-x-3 rounded-full p-3 transition-all hover:bg-gray-100"
+              color="gray"
+            >
+              <link.IconLine size="25px" />
+              <div className="font-normal text-black">{link.name}</div>
+            </button>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default SideBar
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Iz75jx3"
+  format="png"
+  alt="Sidebar with icons"
+  width={400}
+  height={500}
+/>
+
+### Highlighting active route
+
+Next, let's highlight the route that is currently active. To do that, I'll use Next.js's `useRouter` to get the current path, and match it against the path
+
+```tsx
+const SideBar = () => {
+  const router = useRouter();
+  const currentPath = router.asPath;
+  ...
+}
+```
+
+And to make the classes **less ugly**, I'll use Mantine's `clsx` utility function to match class names with conditions. I've also updated the icon based on the `asPath`
+
+```tsx
+...
+              <button
+                className={clsx(
+                  "rounded-full p-3 hover:bg-gray-100 w-full flex transition-all items-center space-x-3",
+                  {
+                    "font-bold": isActive,
+                    "font-normal": !isActive,
+                  }
+                )}
+                color="gray"
+              >
+                {isActive ? (
+                  <link.IconFilled size="25px" />
+                ) : (
+                  <link.IconLine size="25px" />
+                )}
+                <div className="text-black">{link.name}</div>
+              </button>
+...
+```
+
+And now it looks much better!
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="jwB7tj8"
+  format="png"
+  alt="Sidebar with selected effect"
+  width={400}
+  height={500}
+/>
+
+Finally, I'll add the remaining button for the **brand** and **logout**. Click [here](https://github.com/HohShenYien/insta-next/blob/part4-ui-mantine-tailwind/public/brand.svg)
+for svg file of our brand _(made with inkscape)._ Download the image, and place it in `/public` folder,
+all resources in the folder can be accessed directly through the server, e.g., `/public/brand.svg` can
+be accessed with `localhost:3000/brand.svg`
+
+```tsx
+import { AiOutlineHome, AiFillHome, AiOutlineSearch } from 'react-icons/ai'
+import { ImSearch } from 'react-icons/im'
+import { BsPlusSquare, BsFillPlusSquareFill } from 'react-icons/bs'
+import { RiUser3Line, RiUser3Fill } from 'react-icons/ri'
+import { FiLogOut } from 'react-icons/fi'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
+import { clsx } from '@mantine/core'
+import Image from 'next/image'
+
+const links = [
+  { name: 'Home', route: '/', IconLine: AiOutlineHome, IconFilled: AiFillHome },
+  {
+    name: 'Search',
+    route: '/search',
+    IconLine: AiOutlineSearch,
+    IconFilled: ImSearch,
+  },
+  {
+    name: 'Create',
+    route: '/new',
+    IconLine: BsPlusSquare,
+    IconFilled: BsFillPlusSquareFill,
+  },
+  // we will update the route to use user name in next part
+  {
+    name: 'Profile',
+    route: '/profile',
+    IconLine: RiUser3Line,
+    IconFilled: RiUser3Fill,
+  },
+]
+
+const SideBar = () => {
+  const router = useRouter()
+  const currentPath = router.asPath
+
+  return (
+    <div className="fixed left-0 top-0 h-full w-[244px] border-r-[1px] border-solid border-gray-300 px-4 py-6">
+      <div className="flex h-full flex-col justify-between">
+        <div className="flex flex-col items-center">
+          <Link href="/">
+            <Image
+              // Here's the image you downloaded
+              src="/brand.svg"
+              alt="InstaSpring"
+              height="120"
+              width="140"
+            />
+          </Link>
+          <div className="mt-12 w-full space-y-2">
+            {links.map((link, index) => {
+              const isActive = link.route == currentPath
+              return (
+                <Link key={index} href={link.route} className="block">
+                  <button
+                    className={clsx(
+                      'flex w-full items-center space-x-3 rounded-full p-3 transition-all hover:bg-gray-100',
+                      {
+                        'font-bold': isActive,
+                        'font-normal': !isActive,
+                      }
+                    )}
+                    color="gray"
+                  >
+                    {isActive ? <link.IconFilled size="25px" /> : <link.IconLine size="25px" />}
+                    <div className="text-black">{link.name}</div>
+                  </button>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+        {/* We will implement this next */}
+        <Link href={'#'} className="block">
+          <button
+            className={
+              'flex w-full items-center space-x-3 rounded-full p-3 font-normal transition-all hover:bg-gray-100'
+            }
+            color="gray"
+          >
+            <FiLogOut size="25px" />
+            <div className="text-black">Logout</div>
+          </button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+export default SideBar
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="XhvYb2o"
+  format="png"
+  alt="Final look of Sidebar"
+  width={200}
+  height={400}
+/>
+
+Looks fantastic! Just one minor issue there, there's a **duplicated code**, I'll leave it to you to fix
+it, but if you wish to see the solution, check it out at [GitHub](https://github.com/HohShenYien/insta-next/blob/part4-ui-mantine-tailwind/src/components/sidebar/SideBar.tsx).
+
+## Post
+
+The post is really ugly now, it's time to make it look like Instagram's.
+
+### Carousel
+
+_<s>The main reason why I chose Mantine over Chakra</s>_
+
+But yeah, time to create a carousel, we will use [Mantine's Carousel](https://mantine.dev/others/carousel/) for it, let's just copy over the codes from the documentation
+
+```tsx
+// src/components/carousel/ImageCarousel.tsx
+import { Carousel } from '@mantine/carousel'
+import { Image } from '@prisma/client'
+import { useMemo } from 'react'
+
+interface ImageCarouselProps {
+  images: Image[]
+}
+
+const ImageCarousel = ({ images }: ImageCarouselProps) => {
+  // Make sure it's well sorted
+  const sortedImages = useMemo(() => {
+    return images.sort((a, b) => a.sequence - b.sequence)
+  }, [images])
+
+  return (
+    <Carousel maw={320} mx="auto" withIndicators height={200}>
+      <Carousel.Slide>1</Carousel.Slide>
+      <Carousel.Slide>2</Carousel.Slide>
+      <Carousel.Slide>3</Carousel.Slide>
+    </Carousel>
+  )
+}
+```
+
+And replace the ones from our `Post.tsx`
+
+```tsx
+// src/components/posts/Post.tsx
+const Post = ({ post: { caption, images, id } }: PostProps) => {
+  return (
+    <div>
+      <p>{caption}</p>
+      <ImageCarousel images={images} />
+    </div>
+  )
+}
+```
+
+Opening our dev server, and oh no it's **error** again
+
+`Module not found: Can't resolve 'embla-carousel-react'`
+
+Reading back the documentation, it turns out that we have to install it too, let's do it
+
+```bash
+yarn add embla-carousel-react
+```
+
+And now we have at least a working carousel despite looking a little off
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="AkkN1S0"
+  format="png"
+  alt="Initial look of the carousel without image"
+  width={600}
+  height={400}
+/>
+
+Let's place the images in, with a **square aspect-ratio,** and **480 px** in size _(approximate from
+Instagram)_. I also noticed that Mantine's carousel use **data-inactive** to denote if the control buttons
+are clickable, so I **hide the control button** if it's inactive. Finally, I sprinkled some **Tailwind
+magic** to make everything looks neat
+
+```tsx
+import { Carousel } from "@mantine/carousel";
+import { Image } from "@mantine/core";
+import { Image as ImageType } from "@prisma/client";
+import { IoChevronBackCircle, IoChevronForwardCircle } from "react-icons/io5";
+import { useMemo } from "react";
+
+interface ImageCarouselProps {
+  images: ImageType[];
+}
+
+const ImageCarousel = ({ images }: ImageCarouselProps) => {
+  // Make sure it's well sorted
+  const sortedImages = useMemo(() => {
+    return images.sort((a, b) => a.sequence - b.sequence);
+  }, [images]);
+
+  return (
+    <Carousel
+      withIndicators
+      height={480}
+      maw={480}
+      classNames={{
+                  "p-0 border-0 text-white/80 blur-[0.5px] backdrop-blur-sm data-[inactive=true]:invisible data-[inactive=true]:cursor-default",
+        indicator: "bg-white w-2 h-2",
+        viewport: "rounded-sm",
+      }}
+      // changed to match Instagram style
+      previousControlIcon={<IoChevronBackCircle size={30} />}
+      nextControlIcon={<IoChevronForwardCircle size={30} />}
+    >
+      {sortedImages.map((image, index) => {
+        return (
+          <Carousel.Slide key={index}>
+            <Image
+              src={image.url}
+              alt={image.url}
+              height="480"
+              width="480"
+              fit="cover"
+            />
+          </Carousel.Slide>
+        );
+      })}
+    </Carousel>
+  );
+};
+
+export default ImageCarousel;
+```
+
+And now the carousel looks just perfect!
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="cKyc2zq"
+  format="png"
+  alt="Carousel with image"
+  width={400}
+  height={400}
+/>
+
+### Author
+
+Oh no, we didn't think that the posts needed to attach an **author** and **number of likes** initially. Not to worry, we can quickly edit our `findManyPosts.tsx` to include an author as well as count the likes.
+
+I used Prisma's [`_count`](https://www.prisma.io/docs/concepts/components/prisma-client/aggregation-grouping-summarizing#count) to include the count of `liked_bys`, and include a new `attachImage` in our map. I also sorted the posts descendingly
+
+```typescript
+// src/features/posts/findManyPosts.ts
+const findManyPosts = async () => {
+  const posts = await prisma.post.findMany({
+    include: {
+      user: true,
+      _count: {
+        select: {
+          liked_bys: true,
+        },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+  })
+
+  return await Promise.all(
+    posts.map(async (post) => {
+      const postsWithImages = await attachImage(post, 'post')
+      const postsWithAuthorWithImages = {
+        ...postsWithImages,
+        user: await attachImage(post.user, 'user'),
+      }
+      return postsWithAuthorWithImages
+    })
+  )
+}
+```
+
+Finally, we will update our `AllPostsData` from the APIs to match the new return type
+
+```typescript
+// src/pages/api/posts.ts
+export type PostWithAuthor = AttachImage<Post, 'post'> & {
+  _count: {
+    liked_bys: number
+  }
+  user: AttachImage<User, 'user'>
+}
+
+export type AllPostsData = {
+  posts: PostWithAuthor[]
+}
+```
+
+Or alternatively, if you're confident with the `findManyPosts` function, you can always use [`ReturnType`](https://www.typescriptlang.org/docs/handbook/utility-types.html#returntypetype) and [`Awaited`](https://www.typescriptlang.org/docs/handbook/utility-types.html#awaitedtype) from TypeScript to get the **return type** from the function without the promise.
+
+```typescript
+export type AllPostsData = {
+  posts: Awaited<ReturnType<typeof findManyPosts>>
+}
+```
+
+But I prefer the former as the function's return type might go wrong sometimes.
+
+Now that we have the author's information, let's add a **rounded avatar** and **username** on top of the post
+
+```tsx
+// src/components/posts/Post.tsx
+interface PostProps {
+  post: PostWithAuthor
+}
+
+const Post = ({ post: { caption, images, user, created_at } }: PostProps) => {
+  return (
+    <div>
+      <div className="flex items-center py-2">
+        <Avatar
+          src={user.profile_pic?.url}
+          alt={user.username}
+          radius="xl"
+          size="md"
+          className="mr-3"
+        />
+        <Text>{user.username}</Text>
+      </div>
+      <ImageCarousel images={images} />
+      <p>{caption}</p>
+    </div>
+  )
+}
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="3dVsQIM"
+  format="png"
+  alt="Post with author"
+  width={400}
+  height={500}
+/>
+Looking more and more like Instagram now, let's also add a **posting date** beside the author.
+
+### Datetime
+
+Currently, [Moment.js](https://momentjs.com/) is my favorite datetime library in JavaScript (_I know there's luxon, but well_), we will be using it to **manipulate datetime** in this project, let's install it
+
+```bash
+yarn add moment
+```
+
+What we will have to do is to compute the difference between the post's `created_at` and now. Then, we will format the duration nicely
+
+```typescript
+const timeSincePosted = useMemo(() => {
+  const currentTime = moment()
+  const differenceInSeconds = currentTime.diff(created_at, 'seconds')
+  const duration = moment.duration(differenceInSeconds, 'seconds')
+  if (Math.floor(duration.asYears()) > 0) {
+    return Math.floor(duration.asYears()) + 'y'
+  }
+  if (Math.floor(duration.asMonths()) > 0) {
+    return Math.floor(duration.asMonths()) + 'm'
+  }
+  if (Math.floor(duration.asDays()) > 0) {
+    return Math.floor(duration.asDays()) + 'd'
+  }
+  if (Math.floor(duration.asHours()) > 0) {
+    return Math.floor(duration.asHours()) + 'h'
+  }
+  return duration.asMinutes() + 'm'
+}, [created_at])
+```
+
+However, as the function is quite long and probably will be used somewhere else, I moved it to another file, under `utils/datetime/dateDifference.ts`, and it looks quite repetitive too, so let's refactor a little
+
+```typescript
+// utils/datetime/dateDifference.ts
+import moment from 'moment'
+
+export const durationSinceCreated = (created_at: Date) => {
+  const currentTime = moment()
+  const differenceInSeconds = currentTime.diff(created_at, 'seconds')
+  const duration = moment.duration(differenceInSeconds, 'seconds')
+  const units: moment.unitOfTime.Base[] = ['years', 'months', 'days', 'hours', 'minutes']
+
+  for (let i = 0; i < units.length; i++) {
+    const value = Math.floor(duration.as(units[i]))
+    if (value > 0) {
+      return `${value}${units[i].charAt(0)}`
+    }
+  }
+  return '0m'
+}
+```
+
+Let's plug that into our component and update the style a little
+
+```tsx
+const Post = ({ post: { caption, images, user, created_at } }: PostProps) => {
+  const timeSincePosted = useMemo(() => {
+    return durationSinceCreated(created_at)
+  }, [created_at])
+
+  return (
+    <div>
+      <div className="flex items-center py-2">
+        <Avatar
+          src={user.profile_pic?.url}
+          alt={user.username}
+          radius="xl"
+          size="md"
+          className="mr-3"
+        />
+        <div className="flex items-center space-x-2">
+          <Text>{user.username}</Text>
+          <Text className="text-gray-500">•</Text>
+          <Text className="text-gray-500">{timeSincePosted}</Text>
+        </div>
+      </div>
+      <ImageCarousel images={images} />
+      <p>{caption}</p>
+    </div>
+  )
+}
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="sdZWEYZ"
+  format="png"
+  alt="Date posted of the post"
+  width={300}
+  height={100}
+/>
+
+Perfect!
+
+### Link to Author
+
+A quick one, just wrap the components in `Link` and add some **style** on hover
+
+```tsx
+...
+      <div className="flex items-center py-2">
+        <Link href={`/user/${user.username}`}>
+          <Avatar
+            src={user.profile_pic?.url}
+            alt={user.username}
+            radius="xl"
+            size="md"
+            className="mr-3 hover:brightness-125"
+          />
+        </Link>
+        <div className="flex space-x-2 items-center">
+          <Link href={`/user/${user.username}`}>
+            <Text className="hover:text-gray-700">{user.username}</Text>
+          </Link>
+          <Text className="text-gray-500">•</Text>
+          <Text className="text-gray-500">{timeSincePosted}</Text>
+        </div>
+      </div>
+...
+```
+
+_PS: Clicking into it will result in 404 since we_ **_haven't created a page_** _for it_
+
+### Card
+
+Notice how Instagram wrap the content in like a **white card**?
+
+_PS: They removed the card style when I was editing this article, erm so let's assume the old style okay? Plus it looks better with it_
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="maXf0jc"
+  format="png"
+  alt="Instagram's card design"
+  width={400}
+  height={500}
+/>
+
+We will follow it too, making each post having a **max-width** the same as image. At the same time, you
+can fix the font sizes of the caption & username. There should also be some **padding** up and down the
+post.
+
+```tsx
+return (
+  <div className="max-w-[480px] rounded-sm border-[1px] border-solid border-gray-200 bg-white py-1">
+    <div className="flex items-center px-2">
+      <Link href={`/user/${user.username}`}>
+        <Avatar
+          src={user.profile_pic?.url}
+          alt={user.username}
+          radius="xl"
+          size="md"
+          className="mr-3 hover:brightness-125"
+        />
+      </Link>
+      <div className="flex items-center space-x-2 text-[14px]">
+        <Link href={`/user/${user.username}`}>
+          <Text className="font-semibold tracking-wider hover:text-gray-700">{user.username}</Text>
+        </Link>
+        <Text className="text-gray-500">•</Text>
+        <Text className="text-gray-500">{timeSincePosted}</Text>
+      </div>
+    </div>
+    <div className="my-2">
+      <ImageCarousel images={images} />
+    </div>
+    <div className="px-2">
+      <p>{caption}</p>
+    </div>
+  </div>
+)
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="OuSpYMN"
+  format="png"
+  alt="Posts with caption"
+  width={400}
+  height={500}
+/>
+
+Looks much better now, I also added `space-y-4` in **post listing**
+
+```tsx
+// src/pages/index.tsx
+<div className="space-y-4">
+  {posts.isSuccess && posts.data.posts.map((post, index) => <Post post={post} key={index} />)}
+</div>
+```
+
+### Miscellaneous
+
+Let's also the like counts and the heart button (_we will implement it later_). Finally, we will also add the _read more_ button using a utility function to format the text
+
+```typescript
+// src/utils/text/format.ts
+export const formatReadMoreText = (text: string) => {
+  return text.slice(0, 40) + (text.length > 40 ? '...' : '')
+}
+```
+
+Here's the complete code for the Post component
+
+```tsx
+// src/components/posts/Post.tsx
+import { PostWithAuthor } from '@/pages/api/posts'
+import { durationSinceCreated } from '@/utils/datetime/dateDifference'
+import { Avatar, Text } from '@mantine/core'
+import { useMemo, useState } from 'react'
+import ImageCarousel from '../carousel/ImageCarousel'
+import Link from 'next/link'
+import { AiOutlineHeart } from 'react-icons/ai'
+import { formatReadMoreText } from '@/utils/text/format'
+
+interface PostProps {
+  post: PostWithAuthor
+}
+
+const Post = ({
+  post: {
+    caption,
+    images,
+    user,
+    created_at,
+    _count: { liked_bys },
+  },
+}: PostProps) => {
+  const timeSincePosted = useMemo(() => {
+    return durationSinceCreated(created_at)
+  }, [created_at])
+
+  const [readMore, setReadMore] = useState(false)
+
+  return (
+    <div className="max-w-[480px] rounded-sm border-[1px] border-solid border-gray-200 bg-white py-1">
+      <div className="flex items-center px-2">
+        <Link href={`/user/${user.username}`}>
+          <Avatar
+            src={user.profile_pic?.url}
+            alt={user.username}
+            radius="xl"
+            size="md"
+            className="mr-3 hover:brightness-125"
+          />
+        </Link>
+        <div className="flex items-center space-x-2 text-[14px]">
+          <Link href={`/user/${user.username}`}>
+            <Text className="font-semibold tracking-wider hover:text-gray-700">
+              {user.username}
+            </Text>
+          </Link>
+          <Text className="text-gray-500">•</Text>
+          <Text className="text-gray-500">{timeSincePosted}</Text>
+        </div>
+      </div>
+      <div className="my-2">
+        <ImageCarousel images={images} />
+      </div>
+      <div className="px-2 text-[14px]">
+        <div>
+          <button>
+            <AiOutlineHeart className="hover:text-gray-500" size="24px" />
+          </button>
+        </div>
+        <Text span className="font-semibold tracking-wider hover:text-gray-700">
+          {liked_bys} like{liked_bys > 1 && 's'}
+        </Text>
+        <div>
+          <Link href={`/user/${user.username}`} className="mr-1">
+            <Text span className="font-semibold tracking-wider hover:text-gray-700">
+              {user.username}
+            </Text>
+          </Link>
+          <span>{readMore ? caption : formatReadMoreText(caption)}</span>
+          {!readMore && (
+            <button
+              onClick={() => setReadMore(true)}
+              className="ml-2 text-gray-400 hover:text-gray-500"
+            >
+              more
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Post
+```
+
+And now it looks almost identical to Instagram!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="fuxRZ5I"
+  format="png"
+  alt="Posts with collapsible caption and author"
+  width={400}
+  height={500}
+/>
+
+## Layout
+
+Notice how Instagram has the **same SideBar over all of its pages**? _(Except for login & registration, but we'll come to that later)_
+
+It's the time now for us to make use of Next.js's [layout feature](https://nextjs.org/docs/basic-features/layouts). We will first define a **default Layout component** that will place the SideBar to the left and the contents at the center of the remaining space.
+
+As Next.js uses a function instead of a component for layout, we will follow that and create a wrapper function for our default layout
+
+```typescript
+// src/components/layouts/DefaultLayout.tsx
+import { ReactElement, ReactNode } from "react";
+import SideBar from "../sidebar/SideBar";
+
+interface DefaultLayoutProps {
+  children: ReactNode;
+}
+
+const DefaultLayout = ({ children }: DefaultLayoutProps) => {
+  return (
+    // I changed the spacing a little, and added y pads
+    <main className="pl-[252px]">
+      <SideBar />
+      <div className="flex justify-center py-12">{children}</div>
+    </main>
+  );
+};
+
+export default function getDefaultLayout(page: ReactElement) {
+  return <DefaultLayout>{page}</DefaultLayout>;
+}
+```
+
+Then, we will add it to the `_app.tsx`, following the [documentation](https://nextjs.org/docs/basic-features/layouts),
+
+```tsx
+// _app.tsx
+import '@/styles/globals.css'
+import { AppProps } from 'next/app'
+import Head from 'next/head'
+import { MantineProvider } from '@mantine/core'
+import React, { ReactElement, ReactNode } from 'react'
+import { Hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { NextPage } from 'next'
+import getDefaultLayout from '@/components/layouts/DefaultLayout'
+
+// These typesare for TypeScript
+export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+  getLayout?: (page: ReactElement) => ReactNode
+}
+
+type AppPropsWithLayout = AppProps & {
+  Component: NextPageWithLayout
+}
+
+export default function App({ Component, pageProps }: AppPropsWithLayout) {
+  const [queryClient] = React.useState(() => new QueryClient())
+  // This is the key function!
+  const getLayout = Component.getLayout || getDefaultLayout
+
+  return (
+    <>
+      <Head>
+        <title>Page title</title>
+        <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
+      </Head>
+
+      <QueryClientProvider client={queryClient}>
+        <Hydrate state={pageProps.dehydratedState}>
+          <MantineProvider
+            withGlobalStyles
+            withNormalizeCSS
+            theme={{
+              colorScheme: 'light',
+            }}
+          >
+            {getLayout(<Component {...pageProps} />)}
+          </MantineProvider>
+        </Hydrate>
+      </QueryClientProvider>
+    </>
+  )
+}
+```
+
+Awesome! Don't forget to remove the `<SideBar/>` from `index.tsx`
+
+```tsx
+// src/pages/index.tsx
+export default function Home() {
+  const posts = useQuery({ queryFn: getAllPosts, queryKey: ['all-posts'] })
+  return (
+    <>
+      <Head>
+        <title>Create Next App</title>
+        <meta name="description" content="Generated by create next app" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="space-y-4">
+        {posts.isSuccess && posts.data.posts.map((post, index) => <Post post={post} key={index} />)}
+      </div>
+    </>
+  )
+}
+```
+
+And here is how it looks now.
+
+<ImgurImage
+  size="full"
+  imgurId="DUZjuPN"
+  format="png"
+  alt="Posts with likes"
+  width={800}
+  height={700}
+/>
+
+## Likes Modals
+
+Instagram has this cool little likes Modal that pop-ups whenever you clicked on the **like**, we will use Mantine's [ModalManager](https://mantine.dev/others/modals/) to help us with that
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="ZH8eQvZ"
+  format="png"
+  alt="An empty like modal"
+  width={300}
+  height={400}
+/>
+We will first update our `_app.tsx` to wrap a `<ModalsProvider>` around the `<Component>`
+
+```tsx
+...
+            <ModalsProvider>
+              {getLayout(<Component {...pageProps} />)}
+            </ModalsProvider>
+...
+```
+
+### Post Liked Modal
+
+While Mantine provided a **default** Modal Layout that has a title and all, but I'd prefer to create one myself, and remove all styling done by Mantine
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="3i2KTQS"
+  format="png"
+  alt="Testing modal"
+  width={500}
+  height={300}
+/>
+
+### Setting up Modal Provider
+
+As Mantine allows me to pass props to the inner modal, I must make sure the type safety is there, as in **each modal must have the same type of inner props**, e.g., postLikeModals postLikeModals will get the post's id, while createPostModal will not get anything as props
+
+This is how I did it.
+
+_Am I a TypeScript wizard now?_
+
+```typescript
+// src/utils/modals/constants.ts
+export const postLikesModal = 'PostLikes'
+export const createPostModal = 'CreatePost'
+
+export type ModalType = typeof postLikesModal | typeof createPostModal
+
+// src/utils/modals/types.ts
+import { createPostModal, postLikesModal } from './constants'
+
+export type ModalInnerProps = {
+  [key in typeof postLikesModal]: {
+    postId: number
+  }
+} & {
+  [key in typeof createPostModal]: {}
+}
+```
+
+Then, I can use some generic to get what I want for `openModal`, and I also did some tailwind tricks and styling to the modal
+
+```typescript
+// src/utils/modals/openModal.ts
+import { modals } from '@mantine/modals'
+import { ModalType } from './constants'
+import { ModalInnerProps } from './types'
+
+interface OpenModalProps<T extends ModalType> {
+  type: T
+  innerProps: ModalInnerProps[T]
+}
+
+function openModal<T extends ModalType>({ type, innerProps }: OpenModalProps<T>) {
+  modals.openContextModal({
+    padding: 0,
+    modal: type,
+    innerProps,
+    classNames: {
+      header: 'absolute bg-transparent top-2 right-2',
+      close: '!bg-transparent text-black hover:text-gray-800',
+    },
+    closeButtonProps: { size: 28 },
+    radius: 'lg',
+    centered: true,
+  })
+}
+
+export default openModal
+```
+
+And voila, if I pass in the wrong innerProps type
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="BszgTxN"
+  format="png"
+  alt="Type error"
+  width={500}
+  height={300}
+/>
+
+Awesome! Before we can use it, we will create a customized `ModalLayout` first, more stylings here though
+
+```tsx
+// src/components/modals/ModalLayout.tsx
+import { ReactNode } from 'react'
+
+interface ModalLayoutProps {
+  title: string
+  children: ReactNode
+}
+
+const ModalLayout = ({ title, children }: ModalLayoutProps) => {
+  return (
+    <div>
+      <div className="border-b-solid border-b-[1px] border-b-gray-300 px-10 py-2 text-center">
+        <div className="font-semibold">{title}</div>
+      </div>
+      <div className="max-h-[80vh] min-h-[40vh] overflow-y-auto px-2 py-2">{children}</div>
+    </div>
+  )
+}
+
+export default ModalLayout
+```
+
+And done.
+
+We will now create a new modal to use this ModalLayout
+
+```tsx
+// src/components/modals/PostLikedModal.tsx
+import { ContextModalProps } from '@mantine/modals'
+import { ModalInnerProps } from '@/utils/modals/types'
+import { postLikesModal } from '@/utils/modals/constants'
+import ModalLayout from './ModalLayout'
+
+const PostLikedModal = ({
+  context,
+  id,
+  innerProps,
+}: ContextModalProps<ModalInnerProps[typeof postLikesModal]>) => {
+  return <ModalLayout title="Likes">test</ModalLayout>
+}
+
+export default PostLikedModal
+```
+
+Let's update our `_app.tsx`'s `ModalProvider` to include a newly created modal
+
+```tsx
+// src/utils/modals/constants.ts
+import PostLikedModal from "@/components/modals/PostLikedModal";
+
+export const postLikesModal = "PostLikes";
+export const createPostModal = "CreatePost";
+
+export type ModalType = typeof postLikesModal | typeof createPostModal;
+
+export const modals = {
+  [postLikesModal]: PostLikedModal,
+};
+
+// src/pages/_app.tsx
+...
+            <ModalsProvider modals={modals}>
+              {getLayout(<Component {...pageProps} />)}
+            </ModalsProvider>
+...
+```
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="l5NYzv4"
+  format="png"
+  alt="Like modal with names"
+  width={500}
+  height={400}
+/>
+
+More or less resembles Instagram's modal, so far so good.
+
+### Users Liked APIs
+
+Let's now create an **API route** that will return all users that liked this post, also not to forget the **profile picture** of the users. So I'll first create a function to find all the liked users for the post
+
+```typescript
+// src/features/posts/findPostLikedUsers.ts
+import attachImage from '../images/attach-image'
+
+const findPostLikedUsers = async (postId: number) => {
+  const post = await prisma.post.findFirstOrThrow({
+    where: {
+      id: postId,
+    },
+    include: {
+      liked_bys: {
+        include: {
+          user: true,
+        },
+      },
+    },
+  })
+
+  const users = post.liked_bys.map((likedBy) => likedBy.user)
+
+  return await Promise.all(users.map(async (user) => await attachImage(user, 'user')))
+}
+
+export default findPostLikedUsers
+```
+
+And to call the function in our API, the API must be provided with `user_id`. To do this, we will use Next.js's [dynamic API routes](https://nextjs.org/docs/api-routes/dynamic-api-routes). That is, we can call `/api/posts/1/likeds` and `/api/posts/2/liked` both of which will point to the same route.
+
+So the `post_id` here lies in the third segment of the path, we can name the directory `[post_id]` when creating the API handler. This will allow us to extract the `post_id` like this
+
+```typescript
+const { post_id } = req.query
+```
+
+Using it in our handler,
+
+```typescript
+// src/pages/api/posts/[post_id]/likeds.ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+import findManyPosts from '@/features/posts/findManyPosts'
+import { AttachImage } from '@/features/images/attach-image'
+import { User } from '@prisma/client'
+import findPostLikedUsers from '@/features/posts/findPostLikedUsers'
+
+export type PostLikedUsersData = {
+  users: AttachImage<User, 'user'>[]
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<PostLikedUsersData>
+) {
+  const { post_id } = req.query as { post_id: string }
+
+  // returning 404 if the post is not found, exception thrown in
+  // findPostLikedUsers
+  try {
+    const users = await findPostLikedUsers(+post_id)
+    res.status(200).json({ users })
+  } catch (exception) {
+    res.status(404).end()
+  }
+}
+```
+
+### Calling the API
+
+Finally, we will call the API in the frontend
+
+```typescript
+// src/api/posts.ts
+...
+export const getPostLikeds = async (
+  postId: number
+): Promise<PostLikedUsersData> => {
+  const data = await axios.get(`/api/posts/${postId}/likeds`);
+  return data.data;
+};
+```
+
+```tsx
+// src/components/modals/PostLikedModal.tsx
+...
+  const likedUsers = useQuery({
+    queryFn: () => getPostLikeds(postId),
+    queryKey: ["post-likeds"],
+  });
+...
+```
+
+I will trust you with implementing the component, but here is the [solution](https://github.com/HohShenYien/insta-next/blob/part4-ui-mantine-tailwind/src/components/modals/PostLikedModal.tsx) if you would like to refer to it.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="OTcjmhl"
+  format="png"
+  alt="Completed like modal with follow button"
+  width={500}
+  height={300}
+/>
+
+_The color doesn't match Instagram's but that's the best I could go with Tailwind's color template._
+
+And that's it! We just got another query displayed nicely on our newly created modal.
+
+## Summary
+
+This part has gotten a little too long, so I will stop here.
+
+In summary, we have built core UI components like **Sidebar**, **Posts** and **modals** using Mantine and Tailwind. We have also explored some Next.js features like the layout and nested routes.
+
+If you'd like to have some challenges, feel free to build the user profile page yourself! Anyways, we will continue building the UI next part!
+
+Complete codes for this part can be found on my [GitHub](https://github.com/HohShenYien/insta-next/tree/part4-ui-mantine-tailwind)

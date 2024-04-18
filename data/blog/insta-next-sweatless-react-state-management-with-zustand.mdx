@@ -1,0 +1,330 @@
+---
+title: 'Insta-Next: Sweatless React State Management with Zustand'
+date: '2023-04-24'
+lastmod: '2023-04-24'
+tags: ['react', 'zustand', 'state management', 'nextjs']
+draft: false
+summary: 'React State Management made simple using Zustand and say bye to Redux'
+image: v8Ov2MP
+series: insta-next
+---
+
+<TOCInline toc={props.toc} />
+
+Are you still using [Redux](https://redux.js.org/) for your state management? If you're like me, you probably don't like it too.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="SaBrMZN"
+  format="png"
+  alt="I don't like Redux"
+  width={400}
+  height={400}
+/>
+
+Redux used to be my **_nightmare_** while working in React. The states, actions, reducers were **scattered everywhere**, **side effects** in places you least expected, lots of **boilerplate codes** for a single state, etc.
+
+Therefore, we will look into something simpler and more enjoyable state management library today, **Zustand**.
+
+If you decided to follow along the codes but didn't catch up the last parts, check out the codes from my [GitHub](https://github.com/HohShenYien/insta-next/tree/part9-deployment).
+
+## State Management
+
+Yes, with tools like [React Query](https://blogs.shenyien.cyou/insta-next-exploring-apis-with-react-queries) that caches requests, the need for **temporarily storing requests' results will decrease**. However, there are still moments when we'd wish to pass the data **from one component to another**.
+
+That's where **Global State Management** comes into play, it allows us to create **global data storage** for the frontend. _Context is also an option in React but is_ [_bad for_](https://medium.com/@athletecoder/avoid-usecontext-to-handle-your-global-state-in-react-c12454356e2a) _large-scale performance._
+
+<ImgurImage
+  size="full"
+  imgurId="Nd5W7TK"
+  format="jpeg"
+  alt="An example of state management using my website"
+  width={800}
+  height={600}
+/>
+
+Using my [website](https://shenyien.cyou/projects) as an example, a modal for project details will show up upon clicking one of the projects.
+
+<ImgurImage
+  size="full"
+  imgurId="NagzZJ1"
+  format="jpeg"
+  alt="The component tree of my website"
+  width={800}
+  height={600}
+/>
+
+Let's say the modal component is placed on the page level, and the project is nested a few layers down the component tree. The data now is contained in the `Project` component, but required by the `Modal` that is placed under the page.
+
+<ImgurImage
+  size="full"
+  imgurId="C2OD1lW"
+  format="jpeg"
+  alt="Data flow without state management"
+  caption="Pardon me for the ugly arrow"
+  width={800}
+  height={600}
+/>
+
+Without State Management, we will typically be using the plain **useState**. The state will lie on **Page**, while the **setter** will be **passed down** the component tree to `Project` so that the `Project` component can set it during `onClick`, and the `Modal` will consume the state.
+
+Without a single doubt, the complexity will put a lot of cognitive burdens and makes it difficult to maintain the codes, especially as it scales.
+
+<ImgurImage
+  size="full"
+  imgurId="tjypBE9"
+  format="png"
+  alt="Data Flow with State Management"
+  width={800}
+  height={600}
+/>
+
+Using State Management, everything will be **simplified**. The components only **needed to communicate with the data storage** without having extra props passing down from the top.
+
+Of course, not everything needs state management. Normally, I'll only use State Management when the **flow is complex** and **at least more than 2 layers deep**. _(Take this with a grain of salt, this is just my heuristics)_
+
+## What are we building
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="JU82ubk"
+  format="png"
+  alt="Screenshot of the app modal"
+  width={500}
+  height={500}
+/>
+
+In [Part 8](https://blogs.shenyien.cyou/insta-next-likes-and-followers), we built a **follow button** that doesn't immediately reflect the follow status after clicking _(it technically does, we used a temporary solution there)_.
+
+The problem with it? The frontend is using **outdated data** and is **waiting for a response** from the backend. Hence, we will fix this issue by **storing an object of followed users** using Zustand. This allows the frontend to **keep track of users that are followed and unfollowed** before receiving updated data from the backend.
+
+_(There might be better solutions, but this works)_
+
+## Zustand
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="c6RjyWA"
+  format="png"
+  alt="Nice bear from Zustand"
+  caption="Who doesn't like a cute bear as mascot?"
+  width={500}
+  height={300}
+/>
+
+Like Redux, [Zustand](https://github.com/pmndrs/zustand) also allows you to manage the frontend's global states in a **simplified manner**. Do check out their docs to learn more about it! I only covered the essentials here.
+
+_Note: Zustand isn't bound to React, it can also be used in vanilla JavaScript and other frameworks._
+
+### Installation
+
+Zustand is only a single package,
+
+```bash
+yarn add zustand
+```
+
+and there isn't additional configuration required, so we're ready to go!
+
+### Data Store
+
+In Zustand, a store is basically **a hook for a group of related data**. For example, in E-Commerce, you might have stores like `CartStore`, `PaymentStore`, and `UserDetailStore`.
+
+The store will contain the **data**, and any **function that interacts with the data** _(setters, reducers, async actions, etc.)_.
+
+#### Store Type
+
+As usual in the TypeScript world, we will define the **structure of the store** first, let's see, we will store the followed user as an object
+
+```typescript
+// src/stores/useFollowedUserStore.ts
+// Since it's a hook, the use is in the file name
+type FollowedUser = Record<string, boolean>
+```
+
+If we click on Follow button, the user's username will be **added** to `FollowedUser` and **set** to `true`. If unfollowed, it'll be **set** to `false` instead. Let's try to combine these functions
+
+```typescript
+// src/stores/useFollowedUserStore.ts
+...
+export interface FollowedUserStore {
+    followedUser: FollowedUser;
+    followUser: (username: string) => void;
+    unfollowUser: (username: string) => void;
+    reset: () => void; // added this to reset the followedUser object
+}
+```
+
+#### Create Store
+
+Next, we will create the store based on the type we defined
+
+```typescript
+// src/stores/useFollowedUserStore.ts
+import { create } from "zustand";
+...
+const useFollowedUserStore = create<FollowedUserStore> ((set, get) => ({
+    followedUser: {},
+    followUser: (username) => {
+        set({followedUser: {...get().followedUser, [username]: true}})
+    },
+    unfollowUser: (username) => {
+        set({followedUser: {...get().followedUser, [username]: false}})
+    },
+    reset: () => {
+        set({followedUser: {}});
+    }
+}))
+
+export default useFollowedUserStore;
+```
+
+Using `create` from the Zustand, we will also pass the type created in.
+
+There will be two parameters here, `set` and `get`. `get()` will return the **current state** of the store, while `set()` will **update the store state** with the data.
+
+I.e., If I passed `followedUser` in `set`, only `followedUser` field will be updated, other fields will be unaffected.
+
+And that's it, the amount of work here is like much lesser compared to other state management tools.
+
+#### Persistent Storage
+
+Note that the version implemented above **isn't persistent**, that is, if you close the tab, everything is gone.
+
+While this is the behavior desired for our implementation, you might want to **persist some data** sometimes. For example, you might want to persist user's details until they log out, so closing the website doesn't lose the data.
+
+To achieve that, we can use the [persist](https://github.com/pmndrs/zustand#persist-middleware) middleware, just simply wrap the store in it, it will use the browser's `localStorage` by default:
+
+```typescript
+// // src/stores/useFollowedUserStore.ts
+...
+// Note the extra () there
+const useFollowedUserStore = create<FollowedUserStore>()(persist((set, get) => ({
+    followedUser: {},
+    followUser: (username) => {
+        set({followedUser: {...get().followedUser, [username]: true}})
+    },
+    unfollowUser: (username) => {
+        set({followedUser: {...get().followedUser, [username]: false}})
+    },
+    reset: () => {
+        set({followedUser: {}});
+    }
+}), {name: "followed-user"}));
+
+export default useFollowedUserStore;
+```
+
+_PS: I'm using the non-persistent version_
+
+### Using the Store
+
+It's dead simple to use the store, we just call the hook and that's it
+
+```typescript
+const { followedUser, followUser } = useFollowedUserStore()
+```
+
+## Fixing the frontend
+
+Let's head back to our `FollowUserButton`, instead of `useState`, we will use the store we created
+
+```tsx
+// src/components/users/follows/FollowUserButton.tsx
+  // I also removed the modal in this component
+...
+  const {
+    followedUser,
+    followUser: stateFollowUser,
+    unfollowUser: stateUnfollowUser,
+  } = useFollowedUserStore();
+
+  const followUserMutation = useMutation({
+    mutationFn: followUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have followed the user!",
+        color: "green",
+      });
+      // we will update the state in store directly
+      // after successful request
+      stateFollowUser(username);
+      onChange?.(true);
+    },
+  });
+  const unfollowUserMutation = useMutation({
+    mutationFn: unFollowUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have unfollowed the user!",
+        color: "green",
+      });
+      stateUnfollowUser(username);
+      onChange?.(false);
+    },
+  });
+  // Only use data from backend if frontend hasn't record
+  const following = followedUser[username] ?? initialFollow;
+...
+```
+
+Besides this file, there are a few files to update too. However, since this post is meant to be a Zustand tutorial, I won't bother you with the details. Here are the updated files for your reference:
+
+1. Everything except `types.ts` from `src/utils/modals` folder: [GitHub](https://github.com/HohShenYien/insta-next/tree/part10-zustand-state-management/src/utils/modals)
+
+   _Just needed to uncomment all the temporary fix from_ [_Part 8_](https://blogs.shenyien.cyou/insta-next-likes-and-followers)
+
+2. `src/components/users/follows/FollowUserButton.tsx`: [GitHub](https://github.com/HohShenYien/insta-next/blob/part10-zustand-state-management/src/components/users/follows/FollowUserButton.tsx)
+
+   _I removed everything about the modal here_
+
+### Optimizing Data
+
+Noticed the `reset` function from earlier? Since the data is _updated_ when we **refetch the data from backend**, we will reset the `followedUser` object after refetching.
+
+To do this, we can simply call the `reset` function after every successful refetch:
+
+```typescript
+// src/components/users/UserInfo.tsx
+...
+  const { reset } = useFollowedUserStore();
+  const { data: userInfo, isSuccess } = useQuery({
+    queryFn: () => getUserInfo(username),
+    queryKey: ["user-info"],
+    enabled: !!username,
+    onSuccess: (data) => {
+      setActualFollowing(data.user.followers.length > 1);
+      // Here
+      reset();
+    },
+  });
+...
+```
+
+```tsx
+// src/components/modals/PostLikedModal.tsx
+...
+  const { reset } = useFollowedUserStore();
+  const likedUsers = useQuery({
+    queryFn: () => getPostLikeds(postId),
+    queryKey: ["post-likeds"],
+    onSuccess: () => {
+      reset();
+    },
+  });
+...
+```
+
+Note that this step is completely **optional**, might even be redundant since the users probably won't follow a lot of other accounts at once.
+
+Moreover, this data will be removed once the user closes or refresh the page, so this optimization is unnecessary.
+
+## Summary
+
+This is a relatively short article in the series since it solely focuses on Zustand.
+
+To summarize, you have learned about the **reasons behind state management**, **how to setup a Zustand store** by creating types and the store itself, and **using Zustand stores in React**.
+
+I hope you can see the simplicity of setting up Zustand _(especially compared to Redux if you have used it before)_, so let's **advocate for Zustand** and **convince more people to use it**! Let's hope that Zustand will become mainstream one day.
+
+The complete codes for this part can be found [here](https://github.com/HohShenYien/insta-next/tree/part10-zustand-state-management).

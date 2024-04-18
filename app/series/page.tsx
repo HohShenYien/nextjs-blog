@@ -1,6 +1,7 @@
 import seriesData from '@/data/seriesData'
 import Card from '@/components/Card'
 import { genPageMetadata } from 'app/seo'
+import { generateImgurUrl } from '@/components/ImgurImage'
 
 export const metadata = genPageMetadata({ title: 'Series' })
 
@@ -23,7 +24,11 @@ export default function Series() {
                 key={d.title}
                 title={d.title}
                 description={d.description}
-                imgSrc={d.imgSrc}
+                imgSrc={generateImgurUrl({
+                  imgurId: d.imgurId,
+                  size: 'huge thumbnail',
+                  format: 'jpeg',
+                })}
                 seriesId={d.id}
               />
             ))}

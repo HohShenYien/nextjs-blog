@@ -1,0 +1,838 @@
+---
+title: 'Insta-Next: Constructing Database with Prisma'
+date: '2023-04-03'
+lastmod: '2023-04-03'
+tags: ['nextjs', 'react', 'prisma', 'database']
+draft: false
+series: 'insta-next'
+summary: 'In this part, we will use Prisma to setup our database in PostgreSQL'
+image: zgZ7DoO
+---
+
+<TOCInline toc={props.toc} />
+
+In part 1, I created a simple class diagram to show the relationships between the classes.
+
+Picking up from where we dropped off in the last part, I will **introduce Prisma**, convert the class diagram into a **Prisma Schema**, and **migrate** and **seed** the database.
+
+If you decided to skip the first part, no worry, I got you here, you can download the codes from where we stopped the last part [here](https://github.com/HohShenYien/insta-next/tree/part1-frontend-setup).
+
+_Sneak Peek:_
+
+<ImgurImage
+  size="full"
+  imgurId="ywYTJWn"
+  format="png"
+  alt="Sneak Peek of the completed InstaNext"
+  width={800}
+  height={700}
+/>
+
+## Prisma
+
+### Overview
+
+So what exactly is [Prisma](https://www.prisma.io/)?
+
+> Next-generation **Node.js** and **TypeScript** ORM
+
+Two keywords here, TypeScript and ORM.
+
+**TypeScript** - All parameters and objects are fully typed when using Prisma, it'll be very useful later when we need to operate on these objects.
+
+**ORM** - Object Relation Mapping, where **rows** in the database (_or document for mongo db_) are retrieved as **objects** in our codes.
+
+In short, we use Prisma to **connect** & **interact** with the database in the form of typed objects. Even better, Prisma manages **migrations** for you, that is, they will help to update the database structure based on the **Schema.**
+
+### Schema
+
+The Prisma Schema is like a database schema, it defines the **database structure** including the relationships between different entities. The Schema uses Prisma's own syntax, so no SQL is needed, its syntax is also simple.
+
+To start off, each table in Prisma will be defined with a keyword `model`
+
+```typescript
+model User {
+  // The attributes go here
+}
+```
+
+### Types
+
+Like SQL, Prisma provides a few types for us to use
+
+- String
+- Boolean
+- Int
+- BigInt
+- Float
+- Decimal
+- DateTime
+- Json
+- Bytes
+
+However, if we want to be more **specific**, for example, if we wish to create a fixed-length string, we can use annotations `@db`:
+
+```typescript
+model Model {
+  /* myField is char of length 12 in database */
+  myField String @db.Char(12)
+}
+```
+
+### Annotations
+
+Prisma also provides some other annotations for **manipulating database attributes**
+
+1. **@id** - Indicates that this is a primary key
+2. **@unique** - All data in this column must be unique
+3. **@updated** - Marks that this field will be used to show the last updated datetime
+4. **@default** - Default value of the column, aside from fixed value, Prisma allows these defaults to be used
+
+   - uuid() / cuid() - These are unique serial ids, cuid is shorter than uuid, read more about them [here](https://dev.to/harshhhdev/uuidguid-cuid-nanoid-whats-the-difference-5dj1)
+   - now() - current time
+   - autoincrement() - Increases the integer value, usually for id
+
+The annotations can just be used **beside the field** like the ones above, or here
+
+```typescript
+model User {
+  id   Int    @id @default(autoincrement())
+  name String
+}
+```
+
+### Relationships
+
+Relationships in Prisma is like super simple and very intuitive, we just **add a field** of the relationship in the model itself and add the `@relation` **annotation** to tell which column is the foreign key, and the reference key
+
+```typescript
+model User {
+  id      Int    @id @default(autoincrement())
+  name    String
+  // Prisma will resolve this! Referring to the relationship in Post
+  posts   Post[]
+}
+
+model Post {
+  user_id Int
+  user    @relation(fields: [user_id], references: [id])
+  caption String
+}
+```
+
+So there's a **one-to-many** relationship, **one-to-one** is similar, we just need to remove the `[]` from `Post[]`.
+
+Meanwhile, **many-to-many** will require intermediate tables, like the UserFollower and PostLike tables from the class design. In essence, they'll look like **two one-to-many** relationships.
+
+```typescript
+// I know my formatting is a bit off here, but bear with me for now
+model User {
+  id          Int    @id @default(autoincrement())
+  name        String
+  // Prisma will resolve this! Referring to the relationship in Post
+  posts       Post[]
+  posts_liked PostLike []
+}
+
+model Post {
+  id          Int    @id
+  user_id     Int
+  user        User   @relation(fields: [user_id], references: [id])
+  caption     String
+  users_liked PostLike []
+}
+
+model PostLike {
+  user_id    Int
+  user       User @relation(fields: [user_id], references: [id])
+  post_id    Int
+  post       Post @relation(fields: [post], references: [id])
+  created_at @default(now())
+}
+```
+
+and that's it! many-to-many relationship. Nevertheless, Prisma also provides implicit **implementation**, where Prisma creates the intermediate table for you, but I usually prefer to do it myself. You can refer to the [docs](https://www.prisma.io/docs/concepts/components/prisma-schema/relations/many-to-many-relations) if you're interested.
+
+### Queries
+
+Lastly, how do we make a query? Certainly, we **aren't going to write SQL ourselves**.
+
+In Prisma, APIs are provided for all the models we defined, for example, to query for the first 10 users (e.g., id &lt;= 10):
+
+```typescript
+const users = prisma.user.findMany({
+  where: {
+    id: {
+      lte: 10,
+    },
+  },
+})
+```
+
+Pretty neat, isn't it? We are using a where to find for id that is less than or equal (lte) to 10. Here's the [docs](https://www.prisma.io/docs/reference/api-reference/prisma-client-reference#findmany) for your reference, but I'll guide you along the way.
+
+## Setting up Prisma & Database
+
+_You didn't think that you can start writing the schema right away, did you?_
+
+As usual, we install the dependencies, and setup our database.
+
+### Installing Prisma
+
+```bash
+yarn add -D prisma
+yarn add @prisma/client
+```
+
+Then, we will use prisma-cli to bootstrap our project with the required setups
+
+```bash
+npx prisma init
+```
+
+After that, you might see a warning like this
+
+_warn You already have a .gitignore file. Don't forget to add_ `.env` _in it to not commit any private information._
+
+Let's follow the instruction, and add this line into the .gitignore file
+
+```bash
+.env
+```
+
+And that's it, the Prisma is now available in the system! You can now see the `prisma` folder which contains exactly one file, `schema.prisma`.
+
+_PS: Also remember to add Prisma extension to your IDE, here's the one for VS Code_
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="OVh6oWG"
+  format="png"
+  alt="Prisma extension"
+  width={500}
+  height={200}
+/>
+
+### Connecting to Database
+
+We will first create a database in PostgreSQL (_you can install it if you don't have_). Not sure if you're a command line person, but for databases, I'd usually prefer to use GUI. I'm using is [pgAdmin](https://www.pgadmin.org/) to create and [DBeaver](https://dbeaver.io/) for browsing. DBeaver might look a little old, but it's good and solid.
+
+#### Creating Database
+
+<ImgurImage size="full" imgurId="n1BKfSY" format="png" alt="PgAdmin" width={800} height={400} />
+
+After opening the app, just click on the local server (PostgreSQL 14), right-click the Databases and create a Database.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="XImrOyE"
+  format="png"
+  alt="Creating new database in PgAdmin"
+  width={700}
+  height={300}
+/>
+
+I'll name it `instanext`, remember the name, we're going to need it later.
+
+Then, just click save, and voila you got the database now!
+
+#### Connecting to Database
+
+Now, head back to your IDE, open up `.env` file, you should see this line in it
+
+```bash
+DATABASE_URL="postgresql://johndoe:randompassword@localhost:5432/mydb?schema=public"
+```
+
+Prisma is going to refer to the env file's `DATABASE_URL` to find where is the database. Let's update the DATABASE_URL to that of the one we created just now.
+
+```bash
+DATABASE_URL="postgresql://postgres:secret@localhost:5432/instanext"
+```
+
+If you didn't do any specific configuration, this should look the same for you. The `postgres` is the username for the user of your postgreSQL server, `secret` is the password, and `instanext` is the database name. If you did make some configuration, do change them accordingly.
+
+#### Testing Connection
+
+And..... we're done now! It's time for testing.
+
+Open up your `package.json` and add this line under `scripts`
+
+```json
+  "scripts": {
+     ....
+     "migrate": "prisma migrate dev --schema=./prisma/schema.prisma"
+  }
+```
+
+So this line basically lets you use the Prisma installed in your project and you tell it that the schema is located at `./prisma/schema.prisma`. Next, run the migrate
+
+```bash
+yarn migrate
+```
+
+If all goes well, you can see these few lines appearing
+
+```plaintext
+Prisma schema loaded from prisma\schema.prisma
+Datasource "db": PostgreSQL database "instanext", schema "public" at "localhost:5432"
+
+Already in sync, no schema change or pending migration was found.
+
+Error:
+You don't have any models defined in your schema.prisma, so nothing will be generated.
+...
+```
+
+Oh no, there's Error? **False alert**.
+
+We haven't defined anything in the `schema.prisma` file yet, hence the error. But it shows that Prisma managed to connect to the database successfully, and that's what we need.
+
+## Building the Schema
+
+Finally, here comes the exciting part, let's convert this class diagram into a Prisma Schema.
+
+<ImgurImage
+  size="full"
+  imgurId="Znl6ADA"
+  format="png"
+  alt="Class Diagram of InstaNext"
+  width={600}
+  height={500}
+/>
+
+### Basic Models
+
+Let's start with the base entities: **User, Post and Story**, we will ignore relationships for now, open up your `schema.prisma`, add these lines in
+
+```typescript
+model User {
+  id          Int            @id @default(autoincrement())
+  username    String         @unique
+  email       String         @unique
+  password    String
+  description String         @default("")
+  created_at  DateTime       @default(now())
+}
+
+model Post {
+  id         Int        @id @default(autoincrement())
+  caption    String
+  user_id    Int
+  created_at DateTime   @default(now())
+}
+
+model Story {
+  id         Int        @id @default(autoincrement())
+  caption    String
+  user_id    Int
+  created_at DateTime   @default(now())
+}
+```
+
+Here's a challenge for you, can you write out the model for Image? Assuming id, associated_id and sequence are Int, and the rest are Strings.
+
+<details>
+  <summary>Click to reveal the Image Model</summary>
+  ```typescript
+model Image {
+    id            Int    @id @default(autoincrement())
+    type          String
+    url           String
+    associated_id Int
+    sequence      Int
+}
+  ```
+</details>
+
+### Relationships
+
+#### One-to-Many
+
+There are a few relationships there, let's go with the easier one-to-many relationships, that's the `User` to `Post` and `Story`, let's add the relationship to Post first
+
+```typescript
+model Post {
+  ...
+  user      User       @relation(fields: [user_id], references: [id])
+}
+```
+
+You'd probably notice that when you save after writing the relation, Prisma will add a line in the `User` Model. This line ensures that the relationship is **two-way**, `User` can access `Post` and `Post` can access `User`
+
+```typescript
+model User {
+  ...
+  Post       Post[]
+}
+```
+
+But I'd prefer to name it lowercase with plural form _(grammar, you know)_
+
+```typescript
+model User {
+  ...
+  posts       Post[]
+}
+```
+
+And you can do the same to `Story`
+
+<details>
+  <summary>Click to reveal the Story Model</summary>
+  ```typescript
+model Story {
+    id      Int @id @default(autoincrement())
+    caption String
+    user_id Int
+    user    User @relation(fields: [user_id], references: [id])
+}
+  ```
+</details>
+
+And rename the `Story` in `User` to `stories`
+
+#### Many-to-Many
+
+There's only one Many-to-Many relationship here, which is the **User-Post** to record the posts that have been liked by the user. Don't worry, it's quite simple too, we just need to create an **intermediary model**, `PostLike` and add the ids from both `Post` and `User`
+
+```typescript
+model PostLike {
+  user_id    Int
+  post_id    Int
+  created_at DateTime @default(now())
+}
+```
+
+I also added a `created_at` there. Next, you'd hopefully notice that the IDE is screaming **errors** like this
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="yclsfK4"
+  format="png"
+  alt="Invalid Prisma error"
+  width={500}
+  height={300}
+/>
+
+Don't panic, it's normal. Since this model's `user_id` and `post_id` combinations must be normal (_You can't like a post twice_), let's create a composite key, this key means that both `user_id` and `post_id` combined will be used as the primary key
+
+```typescript
+model PostLike {
+  ...
+  @@id([user_id, post_id])
+}
+```
+
+And the error is gone, hooray!
+
+Lastly, we will add the relationship into this model, it's supposed to be the same as above, `PostLike --one-to-many--> User` and `PostLike--one-to-many--> Post`.
+
+```typescript
+model PostLike {
+  ...
+  user       User     @relation(fields: [user_id], references: [id])
+  post       Post     @relation(fields: [post_id], references: [id])
+}
+```
+
+Likewise, two fields will be autogenerated in `User` and `Post`. Let's rename those to make them better represent the relationships
+
+```typescript
+model User {
+  ...
+  posts_liked PostLike[]
+}
+
+model Post {
+  ...
+  liked_bys PostLike[]
+}
+```
+
+#### Self-Referencing relationships
+
+The last relationship that we're implementing here is **User--&gt;UserFollower--&gt;User** relationship. While it doesn't look similar, it's actually just a **many-to-many** relationship under the hood! Let's just copy over the codes from `PostLike` and rename it
+
+```typescript
+model UserFollower {
+  user_id     Int
+  user        User     @relation(fields: [user_id], references: [id])
+  follower_id Int
+  follower    User     @relation(fields: [follower_id], references: [id])
+  created_at  DateTime @default(now())
+
+  @@id([user_id, follower_id])
+}
+```
+
+Oh no it's error again
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="QA14O6T"
+  format="png"
+  alt="Another Prisma error"
+  width={600}
+  height={300}
+/>
+
+Not a big issue, it's just that we have two relations that refer to the **same model**, so we can just add a name for each of them to distinguish them from each other, and similarly, in model `User`
+
+```typescript
+model UserFollower {
+  ...
+  user        User     @relation("followers", fields: [user_id], references: [id])
+  follower    User     @relation("followings", fields: [follower_id], references: [id])
+}
+
+model User {
+  ...
+  followers   UserFollower[] @relation("followers")
+  followings  UserFollower[] @relation("followings")
+}
+```
+
+If you're confused about the names, think of it this way, if you're the follower, then you must be finding the ones you're following, and the same vice versa.
+
+And... that's it! Our schema is done, refer to [GitHub](https://github.com/HohShenYien/insta-next/blob/part2-database-prisma/prisma/schema.prisma) for the complete version.
+
+#### Wait, what about the Image?
+
+Ah that, it's actually called a **polymorphic relationship**, where Image can belong to either of `User`, `Post` or `Story`, depending on the `type`.
+
+Unfortunately, due to the [limitation of Prisma](https://github.com/prisma/prisma/issues/1644), we can't implement it on the Prisma level. I'll implement it manually later.
+
+## Migration
+
+Finally, let's do the migration! Migration is when we **sync the database with our schema** that was just created. It's easy, just run the `migrate` script we created earlier
+
+_PS: Don't run this script for production environment, we usually use_ `prisma migrate deploy` _for it_
+
+```bash
+yarn migrate
+```
+
+Then, you'll probably be prompted for a name of migration, I name it `initial migration`. You should see this message if all goes well:
+
+```bash
+✔ Generated Prisma Client (4.11.0 | library) to .\node_modules\@prisma\client in 333ms
+```
+
+And done! We can now use the Prima in Next.js! You can open up your database GUI client and view the tables being created
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="sMi66Jq"
+  format="png"
+  alt="The database structure from Prisma migration"
+  width={500}
+  height={400}
+/>
+
+## Seeding
+
+While I'm as excited as you are to get started, sadly, the tables are **empty**. Let's do some [**_seeding_**](https://www.prisma.io/docs/guides/database/seed-database) to fill the tables with arbitrary values
+
+To do that, create a `seed.ts` file under the `prisma` folder, then we import the **Prisma client** which allows us to **interact with the database**.
+
+```typescript
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+```
+
+Then, we create a `main` function, and start to create some values, say two users, with 3 posts and a story each, here's the first user
+
+```typescript
+async function main() {
+  const user1 = prisma.user.create({
+    data: {
+      username: 'ShenYien',
+      email: 'hohshenyien@gmail.com',
+      // we will get to encrypting the password next part
+      password: '12345abc',
+      description: 'I am Shen Yien!',
+    },
+  })
+}
+```
+
+But it will start to get tedious with the number of data. It's time to introduce [Faker](https://fakerjs.dev/)! A library that helps to generate random data that look legitimate. First, we install the library
+
+```bash
+yarn add -D @faker-js/faker
+```
+
+Let's create a folder to store functions for data generation to keep them clean. I call these functions factory _(coming from Laravel background)_
+
+```plaintext
+prisma
+|= migrations
+ |- ....
+|= factories
+ |- image.ts
+ |- index.ts  # This is for exporting everything from the same folder
+ |- post.ts
+ |- postLike.ts
+ |- story.ts
+ |- user.ts
+ |- userFollower.ts
+|- schema.prisma
+|- seed.ts
+```
+
+I'll create the factory for the image, user and post here, you can try for the remaining yourself, or refer to [GitHub](https://github.com/HohShenYien/insta-next/tree/part2-database-prisma/prisma/factories) for my implementations:
+
+```typescript
+// factories/user.ts, creating fake users
+import { faker } from '@faker-js/faker'
+import { Prisma } from '@prisma/client'
+
+// The return type will ensure the data is valid
+export const fakeUser = (): Prisma.UserCreateInput => ({
+  username: faker.name.firstName() + faker.name.lastName(),
+  email: faker.internet.email(),
+  password: faker.internet.password(),
+  description: faker.lorem.paragraph(),
+})
+```
+
+For `Post`, it'll be a little different because **every post requires a user**. I created it as follows: if a user is provided, then I'll use `connect` to connect the newly created post with the user, else, a new user will be created.
+
+```typescript
+// prisma/factories/post.ts
+import { faker } from '@faker-js/faker'
+import { Prisma, User } from '@prisma/client'
+import { fakeUser } from './user'
+
+export const fakePost = (user?: User): Prisma.PostCreateInput => {
+  const caption = faker.lorem.paragraph()
+  // any date from the past 15 days
+  const created_at = faker.date.recent(15)
+
+  if (user) {
+    // This is as if setting user_id to user.id
+    return { caption, user: { connect: { id: user.id } }, created_at }
+  }
+  // randomly create a new user
+  return { caption, user: { create: fakeUser() }, created_at }
+}
+```
+
+Finally, for `Image`, we will just create the image url while the `type`, `associated_id` and `sequence` will be passed from outside
+
+```typescript
+// prisma/factories/image.ts
+import { faker } from '@faker-js/faker'
+import { Prisma } from '@prisma/client'
+
+export const fakeImage = (
+  associated_id: number,
+  type: string,
+  sequence: number = 0
+): Prisma.ImageCreateInput => ({
+  type,
+  associated_id,
+  sequence,
+  // I changed to use unsplash as the default loremflickr
+  // was down when I was doing other parts
+  url:
+    faker.image.unsplash.image() +
+    // This is make sure the browser doesn't just retrieve the image from cache
+    '/?random=' +
+    Math.ceil(Math.random() * 10000),
+})
+```
+
+Then, we will just call those functions in our `seed.ts` to create whatever we needed
+
+```typescript
+async function main() {
+  const users: User[] = []
+  const posts: Post[] = []
+  // creating 2 users
+  for (let i = 0; i < 2; i++) {
+    const user = await prisma.user.create({ data: fakeUser() })
+    // attaching a profile picture to the user
+    await prisma.image.create({ data: fakeImage(user.id, 'user') })
+    users.push(user)
+
+    // each user has 3 posts
+    for (let j = 0; j < 3; j++) {
+      const post = await prisma.post.create({ data: fakePost(user) })
+      posts.push(post)
+
+      // each post has 3 images
+      for (let k = 0; k < 3; k++) {
+        await prisma.image.create({ data: fakeImage(post.id, 'post', k) })
+      }
+    }
+
+    // each user has 2 stories
+    for (let j = 0; j < 2; j++) {
+      const story = await prisma.story.create({ data: fakeStory(user) })
+
+      // each story has 1 image
+      await prisma.image.create({ data: fakeImage(story.id, 'story') })
+    }
+  }
+
+  // let's make first 2 users like each other
+  await prisma.userFollower.create({
+    data: fakeUserFollower(users[0], users[1]),
+  })
+  await prisma.userFollower.create({
+    data: fakeUserFollower(users[1], users[0]),
+  })
+
+  //let's make the second user likes every post of first user
+  for (let i = 0; i < 3; i++) {
+    await prisma.postLike.create({ data: fakePostLike(users[1], posts[i]) })
+  }
+}
+```
+
+Here's the full codes, including the calling part which I copied from the Prisma documentation:
+
+```typescript
+import { Post, PrismaClient, User } from '@prisma/client'
+import {
+  fakeImage,
+  fakePost,
+  fakePostLike,
+  fakeStory,
+  fakeUser,
+  fakeUserFollower,
+} from './factories'
+const prisma = new PrismaClient()
+
+async function main() {
+  const users: User[] = []
+  const posts: Post[] = []
+  // creating 2 users
+  for (let i = 0; i < 2; i++) {
+    const user = await prisma.user.create({ data: fakeUser() })
+    // attaching a profile picture to the user
+    await prisma.image.create({ data: fakeImage(user.id, 'user') })
+
+    // each user has 3 posts
+    for (let j = 0; j < 3; j++) {
+      const post = await prisma.post.create({ data: fakePost(user) })
+      posts.push(post)
+
+      // each post has 3 images
+      for (let k = 0; k < 3; k++) {
+        await prisma.image.create({ data: fakeImage(post.id, 'post', k) })
+      }
+    }
+
+    // each user has 2 stories
+    for (let j = 0; j < 2; j++) {
+      const story = await prisma.story.create({ data: fakeStory(user) })
+
+      // each story has 1 image
+      await prisma.image.create({ data: fakeImage(story.id, 'story') })
+    }
+  }
+
+  // let's make first 2 users like each other
+  await prisma.userFollower.create({
+    data: fakeUserFollower(users[0], users[1]),
+  })
+  await prisma.userFollower.create({
+    data: fakeUserFollower(users[1], users[0]),
+  })
+
+  //let's make the second user likes every post of first user
+  for (let i = 0; i < 3; i++) {
+    await prisma.postLike.create({ data: fakePostLike(users[1], posts[i]) })
+  }
+}
+
+// copied from https://www.prisma.io/docs/guides/database/seed-database
+main()
+  .then(async () => {
+    await prisma.$disconnect()
+  })
+  .catch(async (e) => {
+    console.error(e)
+    await prisma.$disconnect()
+    process.exit(1)
+  })
+```
+
+Finally, we add the script for seeding in our `package.json` _(I prefer to call it from yarn)_
+
+```json
+"scripts": {
+  ...
+  "seed": "ts-node prisma/seed.ts"
+}
+```
+
+Wait... it's a bit suspicious there. We have never installed ts-node! Let's install it
+
+```bash
+yarn add -D typescript ts-node @types/node
+```
+
+and we can now run the seeding
+
+```bash
+yarn seed
+```
+
+If you're like me, and you encountered this error:
+
+```bash
+SyntaxError: Cannot use import statement outside a module
+```
+
+You can update the `seed` command from `package.json` to fix it, [source](https://stackoverflow.com/a/68073912)
+
+```json
+"scripts": {
+  ...
+  "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  // for Windows
+  "seed": "set TS_NODE_COMPILER_OPTIONS={\"module\":\"commonjs\"} && ts-node prisma/seed.ts"
+}
+```
+
+and run `yarn seed` again, now you should finally see some data in the tables
+
+<ImgurImage
+  size="full"
+  imgurId="ihIIL6V"
+  format="png"
+  alt="Screenshot of one row of the post"
+  width={700}
+  height={300}
+/>
+
+You can also use Prisma's own Prisma Studio to browse the database
+
+```bash
+npx prisma studio
+```
+
+You can now browse the record easily using Prisma Studio if you don't want to use external apps like DBeaver for it
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="Qkik1Dy"
+  format="png"
+  alt="Prisma Studio"
+  width={600}
+  height={300}
+/>
+
+## Summary
+
+Phew, that was a long way to get our database live.
+
+So to review, we have created a **Prisma Schema**, **connected** a local database the Prisma and **seeded** it.
+
+In the next article, we will have a first look at writing APIs with Next.js!
+
+Complete codes for this part can be found on my [GitHub](https://github.com/HohShenYien/insta-next/tree/part2-database-prisma)

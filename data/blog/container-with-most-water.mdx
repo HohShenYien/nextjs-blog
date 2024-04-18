@@ -1,0 +1,322 @@
+---
+title: 'Container With Most Water'
+date: '2022-12-30'
+lastmod: '2022-12-30'
+tags: ['python', 'leetcode', 'greedy algorithm']
+draft: false
+summary: Let's find out which container can contain the most water through Greedy Algorithm!
+image: LMXwrMn
+series: leetcode
+---
+
+<TOCInline toc={props.toc} />
+
+Leetcode problem: [https://leetcode.com/problems/container-with-most-water/](https://leetcode.com/problems/container-with-most-water/)
+
+## Problem Statement
+
+You are given an integer array `height` of length `n`. There are `n` vertical lines drawn such that the two endpoints of the <code>i<super>th</super></code> line are `(i, 0)` and `(i, height[i])`.
+
+Find two lines that together with the x-axis form a container, such that the container contains the most water.
+
+Return *the maximum amount of water a container can store*.
+
+**Notice** that you may not slant the container.
+
+### **Example 1:**
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Mz306Dp"
+  format="jpg"
+  alt="Container of water"
+  width={500}
+  height={300}
+/>
+
+
+```plaintext
+Input: height = [1,8,6,2,5,4,8,3,7]
+Output: 49
+Explanation: The above vertical lines are represented by array [1,8,6,2,5,4,8,3,7]. In this case, the max area of water (blue section) the container can contain is 49.
+```
+
+### **Example 2:**
+
+```plaintext
+Input: height = [1,1]
+Output: 1
+```
+
+### **Constraints:**
+
+* `n == height.length`
+    
+* <p><code>2 \<\= n \<\= 10<super>5</super></code></p>
+    
+* <p><code>0 \<\= height[i] \<\= 10<super>4</super></code></p>
+
+### Note
+
+The area is **bound by the smaller height of the two lines**. (I hope it's logical to you 😌)
+
+## Discussion
+
+### Concepts
+
+* **Two pointers** - Notice that there's a left and a right in this problem? Yupp, usually when there's a **left** and a **right**, two pointers can be used. Two pointers is a general algorithm that helps to solve the problem by **keeping track** and **moving a left & a right pointers repetitively**.
+    
+* **Greedy Algorithm** - This involves how the two pointers are moving. Basically, we will always **choose the taller line**. Greedy here refers to taking the current tallest (taller of the two) and **assuming it's the best now,** instead of searching for the tallest of all. Details will be discussed in the idea section.
+    
+
+### Brute Force Attempt
+
+I'll skip the codes, but it'll be almost identical to the brute force from the [previous problem](https://blogs.shenyien.cyou/longest-substring-without-repeating-characters#heading-brute-force-attempt).
+
+The brute force here will involve computing the area of every pair of lines, and getting the maximum of them.
+
+The complexity of brute force will be **\\(O(n^2)\\)** from the iteration of every pair (*due to nested loop*) as area calculation is only **\\(O(1)\\)**.
+
+## Optimal Approach
+
+### Idea
+
+The optimal approach (**greedy algorithm**) involves moving the two pointers from **outside in**.
+
+We will start our two pointers from leftmost and rightmost.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="Qa1ZdNG"
+  format="png"
+  alt="Two pointer approach"
+  width={500}
+  height={500}
+/>
+
+
+Why? Well, as we know, `area = width * height`. Thus, the height and width are what we are trying to **maximize** here. So I start from the maximum width and try to get the best height along the way.
+
+While moving, we will compute the area and compare for the maximum in every iteration.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="HkOTaxm"
+  format="png"
+  alt="Calculating the area of water"
+  width={500}
+  height={500}
+/>
+
+
+```python
+def calculateArea(heights, left, right):
+    return min(heights[left], heights[right]) * (right - left)
+```
+
+Next question is, how do we decide whether we move `leftPointer` or `rightPointer`?
+
+As I said, we try to maximize the width and height. Now that we're at maximum width, we will search for the **best height**. How? We move the pointer with **lower height.**
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="oQu6c4o"
+  format="png"
+  alt="Right pointer is shorter"
+  width={500}
+  height={500}
+/>
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="oQu6c4o"
+  format="png"
+  alt="Moving the right pointer"
+  width={500}
+  height={500}
+/>
+
+
+That's it! We will repeat this and we will get the greatest height in the end.
+
+### Discussion
+
+Before we begin, here's some notation
+
+`bestLeft, bestRight` = the lines where the maximal area, `maximalArea` lies in
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="x3inbcz"
+  format="png"
+  alt="Calculating the new max area"
+  width={500}
+  height={500}
+/>
+
+
+Just an additional discussion section in case you have some questions that I had:
+
+1. Why don't we go **inside out** but outside in?
+    
+    Well, there's only one problem with this, **where do we start**?  
+    To get the maximum area, we must ensure that our `leftPointer` will eventually reach `bestLeft` and the same for our `bestRight`.
+    
+    Say we decided to start from center
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="qOgS5EX"
+        format="png"
+        alt="Inside out doesn't work"
+        width={500}
+        height={500}
+        />
+
+    
+    By expanding our `leftPointer` left, it'll never reach `bestLeft`, hence failing the algorithm.
+    
+2. Why does this work?
+    
+    Let's ask it the other way around, ***why does this not work?*** (proof by contradiction)
+    
+    Using our greedy algorithm, there's one thing for sure, either our `leftPointer` will eventually touch `bestLeft` or `rightPointer` will eventually touch `bestRight`.
+
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="9t9YcoJ"
+        format="png"
+        alt="Outside In works"
+        width={500}
+        height={500}
+        />
+    
+    Notice that `leftPointer` always moves `width - steps by rightPointer` before they meet up.
+    
+    So let's say our `rightPointer` is already at `bestRight`, while our `leftPointer` has not touched `bestLeft` yet.
+    
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="seZeUoK"
+        format="png"
+        alt="Out in can find the tallest"
+        width={500}
+        height={500}
+        />
+
+    
+    So in what scenario our `leftPointer` doesn't touch `bestLeft`? When `rightPointer` reaches `bestLeft`, that is, we need to move our `rightPointer` from `bestRight`.
+    
+    And when are we moving our `rightPointer`? When `leftPointer > rightPointer`, or `leftPointer > bestRight`.
+
+    <ImgurImage
+        size="large thumbnail"
+        imgurId="U5rlUXo"
+        format="png"
+        alt="Finding the best left"
+        width={500}
+        height={500}
+        />
+
+    
+    However, if that is the case, there are contradictions here:
+    
+    1. if `bestRight <= bestLeft`,
+        
+        $Area = bestRight * width$ (since `bestRight` is the shorter of two)
+        
+        <ImgurImage
+            size="large thumbnail"
+            imgurId="ZBa9URG"
+            format="png"
+            alt="Maximal area?"
+            width={500}
+            height={500}
+            />
+
+        
+        and since `leftPointer` is on the left of `bestLeft`, the width here is larger. This means that the area here is larger than `maximalArea`.  
+        
+    2. if `bestRight > bestLeft`,
+        
+        $Area = bestLeft * width$
+
+        <ImgurImage
+            size="large thumbnail"
+            imgurId="Y4XADhI"
+            format="png"
+            alt="Found the best"
+            width={500}
+            height={500}
+            />
+
+        
+        and since `leftPointer > bestRight > bestLeft`, doesn't this mean that the area from `leftPointer` and `bestRight` is bigger than `maximalArea`?
+        
+    
+    Thus, the contradiction shows that the scenario will not happen, i.e., `leftPointer` will always reach `leftBest` and `rightPointer` will always reach `rightBest`.
+    
+    [Reference from leetcode](https://leetcode.com/problems/container-with-most-water/solutions/6091/easy-concise-java-o-n-solution-with-proof-and-explanation/)  
+    Of course, there are many more amazing explanations out [there](https://leetcode.com/problems/container-with-most-water/solutions/?q=contra&orderBy=hot), do check them out if you're not convinced by this! (at least I'm convinced by this)
+    
+
+### Codes
+
+```python
+def calculateArea(heights, left, right):
+    return min(heights[left], heights[right]) * (right - left)
+
+class Solution:
+    def maxArea(self, height: List[int]) -> int:
+        curMax = 0
+        left = 0
+        right = len(height) - 1
+        while left < right:
+            curMax = max(curMax, calculateArea(height, left, right))
+            ## It's the same using < or <=
+            if height[left] <= height[right]:
+                left += 1
+            else:
+                right -= 1
+                
+        return curMax
+```
+
+Notice I mentioned that it doesn't matter using &lt; or &lt;=, this is because if `leftPointer == rightPointer`,
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="2Y5P8ZP"
+  format="png"
+  alt="The best area"
+  width={500}
+  height={500}
+/>
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="PNKZRDR"
+  format="png"
+  alt="Found the best area"
+  width={500}
+  height={500}
+/>
+
+
+Regardless of which pointer you move, the resulting area will be smaller. (*width lower, but same height*)
+
+## Analysis
+
+### Time Complexity
+
+As we will only go through the entire array once (from moving `leftPointer` and `rightPointer`) and calculating the area once for each position, the time complexity will be `O(n)`
+
+*As mentioned previously,* `calculateArea` *is `O(1)`*
+
+### Space Complexity
+
+`O(1)` space, as space is only allocated to pointers.
+
+## Last Words
+
+While this problem is not too difficult in terms of algorithm, I find the proof by contradiction to be rather interesting and widened my horizon! 🤩

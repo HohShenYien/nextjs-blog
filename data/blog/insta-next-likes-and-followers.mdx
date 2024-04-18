@@ -1,0 +1,1282 @@
+---
+title: 'Insta-Next: Likes and Followers'
+date: '2023-04-12'
+lastmod: '2023-04-12'
+tags: ['nextjs', 'react-query', 'react', 'mantine-ui']
+draft: false
+series: 'insta-next'
+summary: 'We will implement the core parts of Instagram in this part: the likes and followers logic using POST requests'
+image: YSqb7ck
+---
+
+<TOCInline toc={props.toc} />
+
+In this part, you will get to build the **post liking** and **user following** logics which forms a crucial part of Instagram. In essence, they are just **POST requests** under the hood.
+
+_However, do note that the implementation implemented here is a simplified version and probably doesn't match what they really use._
+
+If you wish to continue from where we dropped off the last part, clone the codes from [GitHub](https://github.com/HohShenYien/insta-next/tree/part7-post-request).
+
+Overall, we will need **4 APIs**, two for each following and liking.
+
+_Sneak Peek_
+
+<ImgurImage
+  size="full"
+  imgurId="54bca5u"
+  format="png"
+  alt="Sneak Peek of the Likes and Follower feature"
+  width={800}
+  height={700}
+/>
+
+## Post Liking
+
+### API Requests
+
+There are two main APIs that we need to implement here. The first API is for **liking** and the second will be **unliking**. _(I hope you guessed it)_
+
+Since both are about liking a post, they will be under the same route. We will create a handler for both the APIs under `post/[post_id]/likes`
+
+_PS: There's another file in the same folder called_ `likeds.ts`_, it's unrelated to what we're doing here_
+
+```typescript
+// src/pages/api/posts/[post_id]/likes.ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { post_id } = req.query as { post_id: string }
+
+  try {
+  } catch (exception) {
+    res.status(404).end()
+  }
+}
+```
+
+Look, when it comes to the Prisma level, liking is just **creating** a `UserFollower` object, or at the database level, **creating a row** in the `user_followers` table. Likewise, unliking is just **deleting a row** in the database.
+
+So you wanna guess what kind of requests will we be receiving? **POST** and **DELETE** for liking and unliking respectively! I will not bother you with too many details since they are relatively simple. Here are the actions
+
+```typescript
+// src/features/postLikes/createPostLikes.ts
+import prisma from '@/utils/prisma'
+const createPostLikes = async (userId: string, postId: string) => {
+  // This is basically a create if not exist
+  return await prisma.postLike.upsert({
+    where: {
+      // We used a composite primary key,
+      // so we must nest them under the prismary key
+      user_id_post_id: {
+        post_id: postId,
+        user_id: userId,
+      },
+    },
+    // You can include details in update to make it a
+    // update if exists, else create
+    update: {},
+    create: {
+      post_id: postId,
+      user_id: userId,
+    },
+  })
+}
+
+export default createPostLikes
+
+// src/features/postLikes/deletePostLikes.ts
+import prisma from '@/utils/prisma'
+const deletePostLikes = async (userId: string, postId: string) => {
+  return await prisma.postLike.deleteMany({
+    where: {
+      post_id: postId,
+      user_id: userId,
+    },
+  })
+}
+
+export default deletePostLikes
+```
+
+Then, we can get the current user, and use them accordingly in the APIs
+
+```typescript
+// src/pages/api/posts/[post_id]/likes.ts
+import createPostLikes from '@/features/postLikes/createPostLikes'
+import deletePostLikes from '@/features/postLikes/deletePostLikes'
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { getServerSession } from 'next-auth'
+
+// We don't need to return anything back to user, a successful status is enough
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { post_id } = req.query as { post_id: string }
+  const session = await getServerSession(req, res, authOptions)
+  const userId = session?.user.id ?? ''
+
+  if (req.method == 'POST') {
+    await createPostLikes(userId, post_id)
+    res.status(201).end()
+  } else if (req.method == 'DELETE') {
+    await deletePostLikes(userId, post_id)
+    res.status(204).end()
+  } else {
+    res.status(401)
+  }
+}
+```
+
+### Frontend
+
+Before we update the component, let's add the corresponding API endpoints into our `src/api`
+
+```typescript
+// src/api/postLikes.ts
+import axios from 'axios'
+
+interface PostId {
+  postId: string
+}
+
+export const likePost = async ({ postId }: PostId): Promise<void> => {
+  await axios.post(`/api/posts/${postId}/likes`)
+}
+
+export const unlikePost = async ({ postId }: PostId): Promise<void> => {
+  await axios.delete(`/api/posts/${postId}/likes`)
+}
+```
+
+#### Like Component
+
+Let's now go back to the `Liked/PostLiked.tsx` component and add the mutation in!
+
+```tsx
+// src/components/posts/Liked/PostLiked.tsx
+const PostLiked = ({ likedBy, postId, className = "" }: PostLikedProps) => {
+  const likePostMutation = useMutation({
+    mutationFn: likePost,
+    onSuccess: () => {
+      showNotification({
+        message: "You have liked the post!",
+        color: "green",
+      });
+    },
+  });
+  const unlikePostMutation = useMutation({
+    mutationFn: unlikePost,
+    onSuccess: () => {
+      showNotification({
+        message: "You have unliked the post!",
+        color: "green",
+      });
+    },
+  });
+...
+```
+
+However, here comes the big problem, **how do I know if the user has liked the post?**
+
+It's a challenging question, I believe there are many ways of doing it, and here are some ideas:
+
+1. When we query the posts, we add another **count field** that counts for the number of likes coming from the active user _(effectively either 0 or 1)_
+2. We include an **extra filtered relationship** in findFollowingPosts to query for `liked_bys` from the active user
+3. Make **another Prisma query** to the database that includes either (1) or (2) and merges two results together.
+
+I hope that it's clear to you that 1 will be the best while 3 will be the worst.
+
+<details data-node-type="hn-details-summary">
+  <summary>Why?</summary>
+  <div data-type="detailsContent">
+    (1) only adds a count, which results in minimal additional query time, while (3) makes an entire
+    query again, so it's like doubling the query time
+  </div>
+</details>
+
+However, there's no way of implementing (1) right now with Prisma, so we will go with the **second alternative**, (2).
+
+_Prisma still doesn't support renaming fields, so we can't add another field just like that under our_ `_count`
+
+```typescript
+// src/features/posts/findFollowingPosts.ts
+const findFollowingPosts = async (userId: string) => {
+  const posts = await prisma.post.findMany({
+    include: {
+      user: true,
+      _count: {
+        select: {
+          liked_bys: true,
+          // if (1) was possible, I can add a liked_by_me
+          // but no, this select only allows attributes of the table, and no others
+        },
+      },
+      liked_bys: {
+        where: {
+          user_id: userId,
+        },
+      },
+    },
+    orderBy: { created_at: "desc" },
+    where: {
+      OR: [
+        {
+          user: {
+            followers: {
+              some: {
+                follower_id: userId,
+              },
+            },
+          },
+        },
+        {
+          user_id: userId,
+        },
+      ],
+    },
+  });
+...
+```
+
+And don't forget to update the return type of the API,
+
+```typescript
+// src/pages/api/posts/index.ts
+...
+export type PostWithAuthor = AttachImage<Post, "post"> & {
+  _count: {
+    liked_bys: number;
+  };
+  liked_bys: PostLike[]; // new attribute
+  user: AttachImage<User, "user">;
+};
+...
+```
+
+Then, we can update our `PostLiked` to receive an extra prop.
+
+Note that I used another `liked` state to **keep track of the actual liked** as there'll be a **delay** before the posts are refetched. At the same time, the `liked` will determine which **mutation function** to call and the **icon**, whether it's filled red or gray outline.
+
+```tsx
+// src/components/posts/Liked/PostLiked.tsx
+import { likePost, unlikePost } from '@/api/postLikes'
+import openModal from '@/utils/modals/openModal'
+import { ActionIcon } from '@mantine/core'
+import { showNotification } from '@mantine/notifications'
+import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+import { AiFillHeart, AiOutlineHeart } from 'react-icons/ai'
+
+interface PostLikedProps {
+  likedBy: number
+  postId: string
+  className?: string
+  initialLiked: boolean
+}
+
+const PostLiked = ({ likedBy, postId, initialLiked, className = '' }: PostLikedProps) => {
+  // useState here as it'll be changed during mutation
+  const [liked, setLiked] = useState(initialLiked)
+
+  const likePostMutation = useMutation({
+    mutationFn: likePost,
+    onSuccess: () => {
+      showNotification({
+        message: 'You have liked the post!',
+        color: 'green',
+      })
+      setLiked(true)
+    },
+  })
+  const unlikePostMutation = useMutation({
+    mutationFn: unlikePost,
+    onSuccess: () => {
+      showNotification({
+        message: 'You have unliked the post!',
+        color: 'green',
+      })
+      setLiked(false)
+    },
+  })
+
+  const mutationFunction = liked ? unlikePostMutation : likePostMutation
+
+  return (
+    <>
+      <div>
+        <ActionIcon
+          variant="subtle"
+          onClick={() => {
+            mutationFunction.mutate({ postId })
+          }}
+          loading={mutationFunction.isLoading}
+        >
+          {/* Changing the heart, from outline to fill if liked */}
+          {liked ? (
+            <AiFillHeart className="text-red-500 hover:text-red-700" size="24px" />
+          ) : (
+            <AiOutlineHeart className="hover:text-gray-500" size="24px" />
+          )}
+        </ActionIcon>
+      </div>
+      <button
+        className={'font-semibold tracking-wider hover:text-gray-700' + className}
+        onClick={() =>
+          openModal({
+            type: 'PostLikes',
+            innerProps: {
+              postId,
+            },
+          })
+        }
+      >
+        {likedBy} like{likedBy > 1 && 's'}
+      </button>
+    </>
+  )
+}
+
+export default PostLiked
+```
+
+Almost there, we just need to pass the `initialLiked` to this `PostLiked` component from `Post.tsx` component
+
+```tsx
+const Post = ({
+  post: {
+    caption,
+    images,
+    user,
+    created_at,
+    _count: { liked_bys },
+    id,
+    liked_bys: likedByMe,
+  },
+}: PostProps) => {
+...
+      <div className="px-2 text-[14px]">
+        <PostLiked
+          postId={id}
+          likedBy={liked_bys}
+          initialLiked={likedByMe.length > 0}
+        />
+}
+```
+
+Let's launch our App and like one of the posts! It should be working, the like button should react perfectly
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="8VSQfdN"
+  format="png"
+  alt="Like button"
+  width={500}
+  height={400}
+/>
+
+Almost perfect now except for one issue that hopefully you'll notice. The **number of like doesn't change immediately** when we like the post, why does it happen?
+
+The number of like comes from `getAllPost` from here
+
+```tsx
+// src/pages/index.tsx
+const posts = useQuery({ queryFn: getAllPosts, queryKey: ['all-posts'] })
+```
+
+which will refetch the queries every now and then _(more specifically, depending on_ `refetchInterval`_)_, so the delay will always be there.
+
+Doesn't look that nice to see the number having a delay there, so we can add some codes to update the count when the `initialLiked` does not match `liked`
+
+_PS:_ `initialLiked` _comes from the server, so it can tell us if the post has the latest data or not when compared with_ `liked`_, which is the current state_
+
+```tsx
+// src/components/posts/Liked/PostLiked.tsx
+const mutationFunction = liked ? unlikePostMutation : likePostMutation;
+
+  // Need to adjust since it takes time to refetch the post,
+  // So before the count is updated, we either add one or subtract one
+  // based on the liked state, if it isn't updated, which is when
+  // the initialLiked and liked don't match
+  const likedByCount =
+    likedBy + (liked !== initialLiked ? (liked ? 1 : -1) : 0);
+
+  return (
+...
+      <button
+        className={
+          "hover:text-gray-700 font-semibold tracking-wider" + className
+        }
+        onClick={() =>
+          openModal({
+            type: "PostLikes",
+            innerProps: {
+              postId,
+            },
+          })
+        }
+      >
+        {/* Using likedByCount instead of likedBy */}
+        {likedByCount} like{likedByCount > 1 && "s"}
+      </button>
+...
+```
+
+And it's all good! There's only one last part to update. If you search for the usage of `PostLiked` component _(or from memory)_, you should find it in our `PostModal`.
+
+Let's update the query used in `PostModal`,
+
+```typescript
+// src/features/posts/findSinglePost.ts
+// I updated the parameter to include userId
+const findSinglePost = async (userId: string, postId: string) => {
+  const { user, ...post } = await prisma.post.findUniqueOrThrow({
+    where: {
+      id: postId,
+    },
+    include: {
+      user: true,
+      _count: {
+        select: {
+          liked_bys: true,
+        },
+      },
+      // included liked_bys filtered relationship
+      liked_bys: {
+        where: {
+          user_id: userId,
+        },
+      },
+    },
+  });
+```
+
+Likewise, here's the updated API
+
+```typescript
+// src/pages/api/posts/[post_id]/index.ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { AttachImage } from '@/features/images/attach-image'
+import { Post, Prisma, User } from '@prisma/client'
+import findSinglePost from '@/features/posts/findSinglePost'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../../auth/[...nextauth]'
+
+export type PostData = {
+  author: AttachImage<User, 'user'>
+  post: AttachImage<
+    Prisma.PostGetPayload<{
+      include: {
+        _count: {
+          select: {
+            liked_bys: true
+          }
+        }
+        // we don't need to pass where in payload type
+        // since filtered or not should return the same type
+        liked_bys: true
+      }
+    }>,
+    'post'
+  >
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<PostData>) {
+  const { post_id } = req.query as { post_id: string }
+  const session = await getServerSession(req, res, authOptions)
+
+  try {
+    const data = await findSinglePost(session?.user.id ?? '', post_id)
+    res.status(200).json(data)
+  } catch (exception) {
+    res.status(404).end()
+  }
+}
+```
+
+and done! We can now use the liked_by in our `PostModal`
+
+```tsx
+// src/components/modals/PostModal.tsx
+...
+              <PostLiked
+                postId={postId}
+                likedBy={post.post._count.liked_bys}
+                initialLiked={post.post.liked_bys.length > 0}
+              />
+...
+```
+
+You can also head to the profile page to check it out!
+
+## Following User
+
+### API
+
+Just like the APIs for our post liking, we will need two different APIs. POST and DELETE, each using a separate action.
+
+Since they are basically the same thing, I'll leave it out for you, do check out the [GitHub](https://github.com/HohShenYien/insta-next/tree/part8-like-follow/src/features/userFollowers) for the solution. I created the actions under `src/features/userFollowers`
+
+Here's how it should look like on the API handler
+
+```typescript
+// src/pages/api/users/[username]/follows.ts
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../../auth/[...nextauth]'
+import findUserInfo from '@/features/users/findUserInfo'
+import createUserFollower from '@/features/userFollowers/createUserFollower'
+import deleteUserFollower from '@/features/userFollowers/deleteUserFollower'
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const { username } = req.query as { username: string }
+  const user = await findUserInfo(username)
+  const session = await getServerSession(req, res, authOptions)
+  const followerId = session?.user.id ?? ''
+
+  if (req.method == 'POST') {
+    await createUserFollower(user.id, followerId)
+    res.status(201).end()
+  } else if (req.method == 'DELETE') {
+    await deleteUserFollower(user.id, followerId)
+    res.status(204).end()
+  } else {
+    res.status(401)
+  }
+}
+```
+
+Likewise, here are they in the API folders
+
+```typescript
+// src/api/userFollowers.ts
+import axios from 'axios'
+
+interface UserUsername {
+  username: string
+}
+
+export const followUser = async ({ username }: UserUsername): Promise<void> => {
+  await axios.post(`/api/users/${username}/follows`)
+}
+
+export const unFollowUser = async ({ username }: UserUsername): Promise<void> => {
+  await axios.delete(`/api/users/${username}/follows`)
+}
+```
+
+### Frontend
+
+There are mainly two places where the **follow** button can be seen. The follow button can be found in the `LikedUser` component and `UserInfo` component.
+
+#### LikedUser
+
+`LikedUser` is found in the modal that pops up when showing the users who liked the post
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="eZStcAv"
+  format="png"
+  alt="Likes Modal"
+  width={500}
+  height={500}
+/>
+
+Just like our PostLikes, we will add a new **follow** button component.
+
+```tsx
+// src/components/users/follows/FollowUserButton.tsx
+import { followUser, unFollowUser } from '@/api/userFollowers'
+import { Button } from '@mantine/core'
+import { showNotification } from '@mantine/notifications'
+import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+
+interface FollowUserButtonProps {
+  username: string
+  initialFollow: boolean
+}
+
+const FollowUserButton = ({ username, initialFollow }: FollowUserButtonProps) => {
+  const [following, setFollowing] = useState(initialFollow)
+
+  const followUserMutation = useMutation({
+    mutationFn: followUser,
+    onSuccess: () => {
+      showNotification({
+        message: 'You have followed the user!',
+        color: 'green',
+      })
+      setFollowing(true)
+    },
+  })
+  const unfollowUserMutation = useMutation({
+    mutationFn: unFollowUser,
+    onSuccess: () => {
+      showNotification({
+        message: 'You have unfollowed the user!',
+        color: 'green',
+      })
+      setFollowing(false)
+    },
+  })
+  const mutationFunction = following ? unFollowUser : followUser
+  const mutate = () => {
+    mutationFunction({ username })
+  }
+  return following ? (
+    <Button
+      className="bg-gray-400 hover:!bg-gray-500"
+      classNames={{ root: 'h-[unset] !px-5', label: 'py-2' }}
+      // what to do here?
+      onClick={() =>
+        openModal({
+          type: unfollowModal,
+          innerProps: { username, profilePic, onConfirm: mutate },
+        })
+      }
+      loading={mutationFunction.isLoading}
+    >
+      Following
+    </Button>
+  ) : (
+    <Button
+      className="bg-blue-500 text-white hover:!bg-blue-600"
+      classNames={{ root: 'h-[unset] !px-5', label: 'py-2' }}
+      onClick={mutate}
+      loading={mutationFunction.isLoading}
+    >
+      Follow
+    </Button>
+  )
+}
+
+export default FollowUserButton
+```
+
+However, I notice that Instagram uses **another modal** for confirming unfollow,
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="0yR4U4v"
+  format="png"
+  alt="Unfollow Confirmation Modal"
+  width={500}
+  height={400}
+/>
+
+Let's build the same modal, using our `ModalManager`
+
+Looking back from [earlier parts](https://blogs.shenyien.cyou/insta-next-more-ui-with-mantine#heading-postmodal), we will need to prepare a little when we build modals
+
+```typescript
+// src/utils/modals/types.ts
+...
+} & {
+  [key in typeof unfollowModal]: {
+    onConfirm: () => void;
+    username: string;
+    profilePic: string;
+  };
+};
+
+// src/utils/modals/constants.ts
+export const postLikesModal = "PostLikes";
+export const postModal = "Post";
+export const createModal = "Create";
+export const storyModal = "Story";
+export const unfollowModal = "Unfollow";
+
+export type ModalType =
+  | typeof postLikesModal
+  | typeof createModal
+  | typeof postModal
+  | typeof storyModal
+  | typeof unfollowModal;
+
+// src/utils/modals/openModal.ts
+const modalProperties: Record<
+  ModalType,
+  Omit<Parameters<typeof modals.openContextModal>[0], "modal" | "innerProps">
+> = {
+...
+  [unfollowModal]: {},
+};
+
+// src/utils/modals/modals.ts
+export const modals = {
+  [postLikesModal]: PostLikedModal,
+  [postModal]: PostModal,
+  [storyModal]: StoryModal,
+  [createModal]: CreateModal,
+  [unfollowModal]: UnfollowUserModal,
+};
+```
+
+And here's the modal that I created, I decided to use the default button since Mantine's buttons are a little troublesome, so yeah
+
+```tsx
+import { unfollowModal } from '@/utils/modals/constants'
+import { ModalInnerProps } from '@/utils/modals/types'
+import { ContextModalProps, closeModal } from '@mantine/modals'
+import ModalLayout from './ModalLayout'
+import { Avatar } from '@mantine/core'
+
+const UnfollowUserModal = ({
+  innerProps: { onConfirm, username, profilePic },
+  id,
+}: ContextModalProps<ModalInnerProps[typeof unfollowModal]>) => {
+  return (
+    <ModalLayout padding={false}>
+      <div className="flex flex-col items-center space-y-4 px-6 py-8">
+        <Avatar
+          src={profilePic}
+          alt={username}
+          size="150px"
+          classNames={{ root: 'rounded-full' }}
+          className="border-[1px] border-solid border-gray-500"
+        />
+        <p>Unfollow @{username}?</p>
+      </div>
+      <div className="flex flex-col items-stretch">
+        <button
+          className="border-t-2 border-solid border-gray-200 py-4 font-semibold text-red-500 hover:bg-red-50 active:bg-red-100"
+          onClick={() => {
+            onConfirm()
+            // Remember to close the modal after confirming
+            closeModal(id)
+          }}
+        ></button>
+        <button
+          className="border-t-2 border-solid border-gray-200 py-4 hover:bg-gray-100 active:bg-gray-200"
+          onClick={() => closeModal(id)}
+        >
+          Cancel
+        </button>
+      </div>
+    </ModalLayout>
+  )
+}
+
+export default UnfollowUserModal
+```
+
+Again, we are facing the issue of how to know if the user is **being followed**?
+
+Simple, we can just add the include with condition like what we did earlier
+
+```typescript
+// src/features/posts/findPostLikedUsers.ts
+import attachImage from "../images/attach-image";
+
+const findPostLikedUsers = async (postId: string, userId: string) => {
+  const post = await prisma.post.findFirstOrThrow({
+    where: {
+      id: postId,
+    },
+    include: {
+      liked_bys: {
+        include: {
+          user: {
+            include: {
+              followers: {
+                where: {
+                  follower_id: userId,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const users = post.liked_bys.map((likedBy) => likedBy.user);
+
+  return await Promise.all(
+    users.map(async (user) => await attachImage(user, "user"))
+  );
+};
+
+export default findPostLikedUsers;
+
+// src/pages/api/posts/[post_id]/likeds.ts
+...
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<PostLikedUsersData>
+) {
+  const { post_id } = req.query as { post_id: string };
+  const session = await getServerSession(req, res, authOptions);
+  const userId = session?.user.id ?? "";
+
+  try {
+    const users = await findPostLikedUsers(post_id, userId);
+    res.status(200).json({ users });
+  } catch (exception) {
+    res.status(404).end();
+  }
+}
+```
+
+Before proceeding, we should update the **types** for the user with image and followers, I notice it's being used at many places, so I decided to put it in the shared `types.ts`
+
+```typescript
+// src/utils/types.ts
+export type UserWithFollowersAndImage = AttachImage<
+  Prisma.UserGetPayload<{
+    include: {
+      followers: true
+    }
+  }>,
+  'user'
+>
+```
+
+Then, you should update the types at a few files
+
+_I hope I didn't miss any files..._
+
+```typescript
+// src/pages/api/posts/[post_id]/likeds.ts
+export type PostLikedUsersData = {
+  users: UserWithFollowersAndImage[];
+};
+...
+
+// src/components/users/LikedUser/LikedUser.tsx
+interface LikedUserProps {
+  user: UserWithFollowersAndImage;
+}
+...
+
+// src/components/users/LikedUser/LikedUsersList.tsx
+interface LikedUsersListProps {
+  users: UserWithFollowersAndImage[];
+}
+```
+
+And that's it! We can now use the FollowUserButton component in our `LikedUser` component
+
+```tsx
+// src/components/users/LikedUser/LikedUser.tsx
+const LikedUser = ({ user }: LikedUserProps) => {
+  return (
+    <div className="flex items-center space-x-2">
+      <Link href={`/users/${user.username}`}>
+        <Avatar
+          src={user.profile_pic?.url}
+          alt={user.username}
+          radius="xl"
+          size="44px"
+          className="hover:brightness-125"
+        />
+      </Link>
+      <Link href={`/users/${user.username}`}>
+        <div>{user.username}</div>
+        <div className="line-clamp-1 text-sm text-gray-500">{user.description}</div>
+      </Link>
+      <div className="flex-1" />
+      <FollowUserButton
+        username={user.username}
+        profilePic={user.profile_pic?.url ?? ''}
+        initialFollow={user.followers.length > 0}
+      />
+    </div>
+  )
+}
+```
+
+Everything seems to work perfectly so far.
+
+<ImgurImage size="full" imgurId="iXRy3iW" format="png" alt="Likes Modal" width={800} height={500} />
+
+However, if you notice, after unfollowing the user, the button doesn't **get updated immediately**. This means that the button is still showing **following** when it should be otherwise.
+
+HMM, that's strange didn't we already include the state? Well, it turns out that the modal is **destroyed and replaced**, it's not like overlapping on top of each other, so this doesn't work here.
+
+Let's see what are some options that we can consider?
+
+1. **Refetch the entire user list**, it will certainly work, but a bad option here. Why? I don't think you'll be pleased to see the list being refreshed everytime you follow a user, right? It's annoying.
+2. **Stack the modal on top**, instead of relying on ModalManager, we can stack the modal somewhere else, which arguably is an okay option.
+3. **Store the followed user somewhere,** since the modal is destryong and the data is lost, we could store it somewhere, right? What does this mean? **State Management**. This will be the better approach here.
+
+Since our page is getting a little huge, and option (3) is out of scope _(to be revisited in another part)_, so we will work with **option (2) for now**.
+
+It's pretty simple, we just stack the Modal in the FollowUserButton
+
+_Disclaimer: This solves the issue, but doesn't scale well as each button will have a modal itself. Instead, it would be better to place it in the_ **_list or modal_** _level, so that the component is not duplicated. Anyways, this is a temporary solution and we will revisit this issue in the future_
+
+_Feel free to skip this temporary solution_
+
+```tsx
+// src/components/users/follows/FollowUserButton.tsx
+...
+const FollowUserButton = ({
+  username,
+  initialFollow,
+  profilePic,
+}: FollowUserButtonProps) => {
+  const [following, setFollowing] = useState(initialFollow);
+  const [showModal, { open, close }] = useDisclosure(false);
+
+  const followUserMutation = useMutation({
+    mutationFn: followUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have followed the user!",
+        color: "green",
+      });
+      setFollowing(true);
+    },
+  });
+  const unfollowUserMutation = useMutation({
+    mutationFn: unFollowUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have unfollowed the user!",
+        color: "green",
+      });
+      setFollowing(false);
+    },
+  });
+  const mutationFunction = following
+    ? unfollowUserMutation
+    : followUserMutation;
+  const mutate = () => {
+    mutationFunction.mutate({ username });
+  };
+  return (
+    <>
+      {following ? (
+        <Button
+          className="bg-gray-400 hover:!bg-gray-500"
+          classNames={{ root: "h-[unset] !px-5", label: "py-2" }}
+          onClick={open}
+          loading={mutationFunction.isLoading}
+        >
+          Following
+        </Button>
+      ) : (
+        <Button
+          className="bg-blue-500 hover:!bg-blue-600 text-white"
+          classNames={{ root: "h-[unset] !px-5", label: "py-2" }}
+          onClick={mutate}
+          loading={mutationFunction.isLoading}
+        >
+          Follow
+        </Button>
+      )}
+      {/* Added an ugly modal here, to be fixed */}
+      <Modal
+        opened={showModal}
+        padding={0}
+        closeButtonProps={{ size: 28 }}
+        radius="lg"
+        centered={true}
+        onClose={close}
+        scrollAreaComponent={Box as any}
+        classNames={{
+          header: "absolute bg-transparent top-2 right-2",
+          close: "!bg-transparent text-black hover:text-gray-800",
+          inner: "overflow-hidden z-[300]",
+          content: "!overflow-hidden",
+        }}
+      >
+        <UnfollowUserModal
+          innerProps={{ username, profilePic, onConfirm: mutate }}
+          onClose={close}
+        />
+      </Modal>
+    </>
+  );
+};
+
+export default FollowUserButton;
+```
+
+Unfortunately, we will need to update a few parts to accommodate this change
+
+```typescript
+// src/utils/modals/constants.ts
+export type ModalType =
+  | typeof postLikesModal
+  | typeof createModal
+  | typeof postModal
+  | typeof storyModal;
+// | typeof unfollowModal;
+
+// src/utils/modals/modals.ts
+export const modals = {
+  [postLikesModal]: PostLikedModal,
+  [postModal]: PostModal,
+  [storyModal]: StoryModal,
+  [createModal]: CreateModal,
+  // [unfollowModal]: UnfollowUserModal,
+};
+
+// src/utils/modals/openModal.ts
+..
+  },
+  // [unfollowModal]: {},
+};
+```
+
+Finally, let's update the `UnfollowUserModal` quickly
+
+```tsx
+// src/components/modals/UnfollowUserModal.tsx
+interface UnfollowUserModalProps {
+  innerProps: ModalInnerProps[typeof unfollowModal]
+  onClose: () => void
+}
+
+const UnfollowUserModal = ({
+  innerProps: { onConfirm, username, profilePic },
+  onClose,
+}: UnfollowUserModalProps) => {
+  return (
+    <ModalLayout padding={false}>
+      <div className="flex flex-col items-center space-y-4 px-6 py-8">
+        <Avatar
+          src={profilePic}
+          alt={username}
+          size="150px"
+          classNames={{ root: 'rounded-full' }}
+          className="border-[1px] border-solid border-gray-500"
+        />
+        <p>Unfollow @{username}?</p>
+      </div>
+      <div className="flex flex-col items-stretch">
+        <button
+          className="border-t-2 border-solid border-gray-200 py-4 font-semibold text-red-500 hover:bg-red-50 active:bg-red-100"
+          onClick={() => {
+            onClose()
+            onConfirm()
+          }}
+        >
+          Unfollow
+        </button>
+        <button
+          className="border-t-2 border-solid border-gray-200 py-4 hover:bg-gray-100 active:bg-gray-200"
+          onClick={onClose}
+        >
+          Cancel
+        </button>
+      </div>
+    </ModalLayout>
+  )
+}
+
+export default UnfollowUserModal
+```
+
+Now everything works again, life is good, and we can move on!
+
+<ImgurImage
+  size="full"
+  imgurId="jDnTtle"
+  format="png"
+  alt="Unfollowing on Likes Modal"
+  width={800}
+  height={500}
+/>
+
+_Disclaimer: Don't use this in real scenario, it's a dirty fix that'll be fixed soon_
+
+#### UserInfo
+
+Likewise, we will need to update the API to pass this info, you can head to `findUserInfo.ts` and update accordingly
+
+```typescript
+// src/features/users/findUserInfo.ts
+const findUserInfo = async (username: string, userId: string) => {
+  const user = await prisma.user.findFirstOrThrow({
+    where: {
+      username,
+    },
+    include: {
+      _count: {
+        select: {
+          followers: true,
+          followings: true,
+          posts: true,
+        },
+      },
+      followers: {
+        where: {
+          follower_id: userId,
+        },
+      },
+    },
+  });
+
+  return await attachImage(user, "user");
+```
+
+as well as including the **active user's ID** and updating the **type** the API is returning
+
+```typescript
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { AttachImage } from '@/features/images/attach-image'
+import { Prisma, User } from '@prisma/client'
+import findUserInfo from '@/features/users/findUserInfo'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../../auth/[...nextauth]'
+
+export type UserInfoData = {
+  user: AttachImage<
+    Prisma.UserGetPayload<{
+      include: {
+        _count: {
+          select: {
+            followers: true
+            followings: true
+            posts: true
+          }
+        }
+        followers: true
+      }
+    }>,
+    'user'
+  >
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<UserInfoData>) {
+  const { username } = req.query as { username: string }
+  const session = await getServerSession(req, res, authOptions)
+
+  try {
+    const user = await findUserInfo(username, session?.user.id ?? '')
+    res.status(200).json({ user })
+  } catch (exception) {
+    res.status(404).end()
+  }
+}
+```
+
+After getting all the necessary info, you can finally use the `FollowUserButton` in the `UserInfo` component
+
+```tsx
+// src/components/users/UserInfo.tsx
+...
+              <div className="flex items-end mb-8 space-x-8">
+                <div className="text-xl">{userInfo.user.username}</div>
+                <FollowUserButton
+                  initialFollow={userInfo.user.followers.length > 0}
+                  profilePic={userInfo.user.profile_pic?.url ?? ""}
+                  username={userInfo.user.username}
+                />
+              </div>
+...
+```
+
+And it actually looks good!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="pDHpP6p"
+  format="png"
+  alt="User Info"
+  width={800}
+  height={400}
+/>
+
+However, the same issue about follower count is happening again, I'll leave it to you as a challenge, but do check out how I solved it on [GitHub](https://github.com/HohShenYien/insta-next/blob/part8-like-follow/src/components/users/UserInfo.tsx#L20).
+
+_PS: I updated the_ `FollowUserButton` _to add an_ `onChange` _optional parameter, and other implementations will be equivalent to the previous one in_ `PostLiked`
+
+```tsx
+interface FollowUserButtonProps {
+  username: string;
+  initialFollow: boolean;
+  profilePic: string;
+  onChange?: (following: boolean) => void; // new parameter
+}
+
+const FollowUserButton = ({
+  username,
+  initialFollow,
+  profilePic,
+  onChange,
+}: FollowUserButtonProps) => {
+...
+  const followUserMutation = useMutation({
+    mutationFn: followUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have followed the user!",
+        color: "green",
+      });
+      setFollowing(true);
+      // calling them after onSuccess
+      onChange?.(true);
+    },
+  });
+  const unfollowUserMutation = useMutation({
+    mutationFn: unFollowUser,
+    onSuccess: () => {
+      showNotification({
+        message: "You have unfollowed the user!",
+        color: "green",
+      });
+      setFollowing(false);
+      onChange?.(false);
+    },
+  });
+...
+}
+```
+
+_PS2: We will also need to fix another API that uses_ `finsUserInfo`
+
+```typescript
+// src/pages/api/users/[username]/follows.ts
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const { username } = req.query as { username: string };
+  const session = await getServerSession(req, res, authOptions);
+  const followerId = session?.user.id ?? "";
+  const user = await findUserInfo(username, followerId);
+```
+
+## Final Touch-up
+
+I don't know if you notice it already, the follow button **will continue to show up** even if you're the user!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="gr7pBUl"
+  format="png"
+  alt="Follow button appearing on own profile"
+  width={800}
+  height={400}
+/>
+
+I don't really want to show the button if I'm the user, that's pretty much a bad idea!
+
+Well, there's an easy way to solve it, we will check the active user in the `FollowUserButton` and hide it whenever it matches the active user's username
+
+```tsx
+// src/components/users/follows/FollowUserButton.tsx
+...
+  const { data } = useSession();
+  if (data?.user.name === username) {
+    return <></>;
+  }
+  return (
+...
+```
+
+And it'll be all good now!
+
+## Summary
+
+In this part, we finally implemented two of the core functions of Instagram: **Post Liking** and **User Following** mechanisms. During the process, we created **four APIs**, a POST and a DELETE request for each.
+
+Finally, we built a separate **UI component** for both of the mechanisms. You have also learned about keeping the state updated while the request is still being processed.
+
+I also showed you a simple **quickfix** to get around an issue we encountered where the state can't be updated because the modal is **destroyed while switching**. We will revisit this issue with state management in a future part!
+
+In the next part, we will look into **deploying a Next.js website**.
+
+As usual, here's the complete codes for this part: [GitHub](https://github.com/HohShenYien/insta-next/tree/part8-like-follow)

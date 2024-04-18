@@ -1,0 +1,274 @@
+---
+title: "A Layman's Guide to Leetcode"
+date: '2023-04-14'
+lastmod: '2023-04-14'
+tags: ['leetcode', 'guide', 'algorithms']
+draft: false
+summary: 'How can you break into the Leetcode domain without grinding questions days and nights?'
+image: 1sfoVL9
+series: leetcode
+---
+
+<TOCInline toc={props.toc} />
+
+If you aren't a big fan of algorithms or competitive programming, you'd probably **frown** at the idea of grinding Leetcode questions. However, given their prevalence as **part of the interview process**, you might at one point want to prepare yourself for it.
+
+While there are many Leetcode guides out there, this guide is oriented for those who **don't plan to put a lot of commitments in Leetcode**. Maybe you plan to just put one or two hours per week into it, or even randomly when mood comes, then this is suitable for you.
+
+Of course, you **won't become an expert** by the end of this guide either. This guide is meant to help you in **getting up and running**, and even capable of **passing some Leetcode interviews**, but won't get you into dominating the competitions.
+
+**Disclaimer**: _I won't call myself an expert in these problems (at most decent, I guess), but I can probably solve Medium problems 70% of the time, and some Hard ones with luck._
+
+## First Step: Preparation
+
+### Programming Language
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="KBnaS6E"
+  format="jpeg"
+  alt="Programming Languages"
+  width={500}
+  height={400}
+/>
+
+I hope that you do know at least one or two programming languages.
+
+The know here is really **basic**, you don't need to know any fancy library _(actually you might want to know a few data structure libraries)_ or framework to get started. The absolute **minimum requirements** to get started with a language are:
+
+1. Conditional Statement (if/else)
+2. Loops (while & for)
+3. Data Structures (Array / List, Set & Dictionary / HashMap)
+4. Function
+5. Basic Object-oriented knowledge
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="u2LeuDP"
+  format="png"
+  alt="Dynamic vs Static Typings"
+  width={300}
+  height={500}
+  caption="It's like you focus on the problem part without having to care about syntax, the solution is one-off anyways"
+/>
+
+Personally, I recommend **dynamically-typed** _(where you don't have to specify types and integers have no upper limit)_ and **high-level programming** languages when solving the problems. You don't have to worry about things like **using long or int** or be bothered about the **return types of recursive functions**.
+
+My favorite is **Python**, but **Ruby** and **JavaScript** will do too.
+
+_Python has a lot of built-in libraries like_ **_heapq_** _and_ **_collections_** _that we can use, so I think Python &gt; JavaScript when it comes to problem-solving._
+
+It's nothing wrong to use Java or C in solving Leetcode, it's just that your attention will be **diverted to the syntax**.
+
+### Algorithm Knowledge
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="V0zvVRG"
+  format="png"
+  alt="A meme of programming avoiding Data Structure and Algorithms"
+  width={400}
+  height={400}
+  caption="No, you can't avoid learning them"
+/>
+
+It's not wrong for you to venture into Leetcode without any Data Strcture & Algorithms (DSA) knowledge, but **the journey will be painful**. (I felt that before)
+
+I would recommend for you to at least know **basic concepts** (TIme & Space complexity), some **algorithms** _(mainly sorting and searching)_ and **data structures** _(HashMap, Stack, Queue, Linked List are the most common ones)_. You can then pick up the **techniques** (like two pointers and sliding window) along the way.
+
+_By the way, the "know" here means that you can at least code it out_
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="2RwGyVM"
+  format="png"
+  alt="The Grokking Algorithms book"
+  width={400}
+  height={300}
+  caption="Who doesn't like illustrated books?"
+/>
+
+If you're like totally new to these terms, I strongly recommend [Grokking Algorithms](https://www.amazon.com/Grokking-Algorithms-illustrated-programmers-curious/dp/1617292230). Fully illustrated with digestable chunks, very good for you to grasp the basics quickly.
+
+If you have some spare time or prefer video format, I would recommend [Algorithms I](https://www.coursera.org/learn/algorithms-part1) course ([the companion website](https://algs4.cs.princeton.edu/home/)). There are two parts to the course, but part I will be more than enough to get started.
+
+### What about CLRS?
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="iDkCa3g"
+  format="png"
+  alt="The CLRS Book"
+  width={300}
+  height={400}
+  caption="The CLRS book, named after the initials of the authors"
+/>
+
+If you've done some searching before, you'd probably come across [Introduction to Algorithms](https://www.amazon.com/Introduction-Algorithms-3rd-MIT-Press/dp/0262033844) (also known as CLRS), or MIT OCW's [Introduction to Algorihtms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-fall-2011/). Don't get me wrong, they're amazing.
+
+After all, we're not going to develop some algorithm libraries or getting our PhD in Computer Science. Our purpose here is to be able to solve some problems right? And those are **highly theoretical**, definitely not suitable for a layman like you and I. _(or maybe just me)_
+
+### How much to Learn
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="dNW2Qpu"
+  format="gif"
+  alt="An endless stairs GIF"
+  width={400}
+  height={400}
+  caption="Algorithms is endless"
+/>
+
+I believe there are more than thousands of DSAs out there _(unproven, this a random figure)_ but we just need to master a very small subset of those. Trust me, **you don't need to know all of them**.
+
+Anyways, even if you just know the algorithms that I mentioned earlier, it's all good to get started, certainly more than what I knew back when I started. You'll **learn more as you solve more problems** along the way.
+
+## Into Leetcode
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="WndTpFe"
+  format="png"
+  alt="Leetcode"
+  width={500}
+  height={300}
+/>
+
+You don't have to practice everyday, but every now and then, you might want to solve a problem or two to get better.
+
+### Where to Start — Curated List
+
+So you're ready now, you enter the Leetcode website, and boom, there are thousands of problems! **Where should you start?** Starting from Problem 1 down the list? or solve all easy problems first?
+
+The key here is to **go by topic**, more specifically, follow a **curated list**.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="lMf8g0a"
+  format="png"
+  alt="Filter by topics on Leetcode"
+  width={600}
+  height={500}
+  caption="Filter by topic on Leetcode"
+/>
+
+Yes, Leetcode itself has a [filter by topics](https://leetcode.com/problemset/all/), but even then it's **messy**. They are unordered and don't build up the difficulty gradually. Trust me, failing to solve most of the problems is a **great frustration** that stops you from progressing.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="0D19qc3"
+  format="png"
+  alt="The Leetcode Patterns website"
+  width={700}
+  height={600}
+  caption={
+    <>
+      <a href="https://seanprashad.com/leetcode-patterns/" target="_blank">
+        Leetcode Patterns
+      </a>{' '}
+      is a good curated list that slowly builds up difficulty for each topic
+    </>
+  }
+/>
+
+Meanwhile, a **curated list** by someone not only groups the problem by their topics, they will **build up your skills slowly on each topic** with increasing difficulty. Just follow along, and you'll find yourself getting better!
+
+So, where's the list? Here are some that I came across in the past
+
+1. [Blind 75](https://leetcode.com/list/xoqag3yj/) - Probably the most popular list out there. While the exact topic isn't shown, you will notice that there's a common topic for every few consecutive problems. I highly recommend solving down the list!
+2. [Leetcode Patterns](https://github.com/seanprashad/leetcode-patterns) - Another popular list, the best about this list is that they also show how often the problems are asked in popular companies like Google. Nonetheless, you need to remember to filter yourself.
+3. [Leetcode Common Patterns](https://leetcode.com/discuss/interview-question/448285/List-of-questions-sorted-by-common-patterns) - Quite a decent list too.
+
+All you need to do is to pick one and get started!
+
+### Mindset
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="6UJGAu5"
+  format="png"
+  alt="Positive Mindset"
+  width={400}
+  height={300}
+/>
+
+While solving the problem, you have to remember one important thing, **we aren't genius**. How would we know a technique if we aren't introduced to it?
+
+But before jumping into conclusion that you don't know the technique, check out the **related topics** first, you might be able to catch a clue or two there.
+
+However, if you get stuck for **too long** _(maybe 30 mins)_, there's probably still a **gap in your knowledge**, so stop working, and check the solution.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="L7j9DVK"
+  format="png"
+  alt="Leetcode Solutions"
+  width={500}
+  height={400}
+  caption={
+    <>
+      Look at the number of solutions there just for a{' '}
+      <a href="https://leetcode.com/problems/two-sum/solutions/?orderBy=most_votes" target="_blank">
+        problem
+      </a>
+    </>
+  }
+/>
+
+You don't just copy and paste the solution, too! **Read thoroughly and understand it**. Then, try to answer the problem again without checking back the solution.
+
+_PS: There are many solutions for each problem, so if you can't understand one, check for another. You can even search on YouTube for a more comprehensive explanation._
+
+And that's the purpose of using a **curated list**. You slowly learn about the techniques in each topic, then build up the understanding from the previous problems of the topic.
+
+### How Frequent
+
+![](https://cdn.hashnode.com/res/hashnode/image/upload/v1681464040656/f845c4d7-ee60-4fb8-b25c-ac8ca6eb5b84.png align="center")
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="FdG5jC6"
+  format="png"
+  alt="Yoda saying perfect"
+  width={400}
+  height={300}
+  caption="The more frequent, the better, of course"
+/>
+
+For starters, I'd recommend up to **3-4 problems of the same topic per week**. It's even better if you do them on the **same day**.
+
+Why? You haven't get used to the concepts yet, so it's best to **solidify the knowledge** in your brain after learning about it from 1 problem, and apply it to other problems.
+
+_PS: Of course, the number of problems might need to increase slightly if you find yourself forgetting the techniques after one week._
+
+Nevertheless, after grasping all the topics, you can **tone down a little**, or even just practice back when you are going to interviews should be sufficient.
+
+However, the frequency totally depends on **how fast you want to get good**. The faster you wish, you more frequent you should do.
+
+## Final Words
+
+I wouldn't even call this guide the _best practice_, rather, it's just a summary from my past experience with Leetcode.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="z7InTIF"
+  format="png"
+  alt="Screenshot of Leetcode Contest"
+  width={500}
+  height={400}
+  caption={
+    <>
+      Leetcode's{' '}
+      <a href="https://leetcode.com/contest/" target="_blank">
+        contest
+      </a>
+    </>
+  }
+/>
+
+Anyways, you can join some **weekly / biweekly contests** to see where do you rank _(normally, if you can solve 3 out of 4, it's good to go)_, or even invite some friends to Leetcode together, it can be fun too!
+
+Also, getting the optimal solution might not always be the goal, sometimes the interviewers might be just okay if you provide **brute-force** solutions. Don't go too harsh on yourself.
+
+Finally, remember that **Leetcode is not everything**. There are still companies that do technical interviews without Leetcode.

@@ -34,7 +34,9 @@ export const generateImgurUrl = ({
   imgurId,
   format = 'png',
 }: ImgurUrlProp) => {
-  return `https://i.imgur.com/${imgurId}${sizeToCharMap[size]}.${format}`
+  // not using size for gif
+  const sizePostfix = format === 'gif' ? '' : sizeToCharMap[size]
+  return `https://i.imgur.com/${imgurId}${sizePostfix}.${format}`
 }
 
 interface ImgurImageProps extends Omit<ImageProps, 'src'> {
@@ -90,7 +92,9 @@ const ImgurImage = ({
     >
       {image}
       {caption && (
-        <div className="-mt-4 mb-3 text-sm italic text-gray-600 dark:text-gray-300">{caption}</div>
+        <div className="-mt-4 mb-3 text-base font-light italic text-gray-600 dark:text-gray-300">
+          {caption}
+        </div>
       )}
     </div>
   )

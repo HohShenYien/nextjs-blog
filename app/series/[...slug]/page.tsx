@@ -5,8 +5,10 @@ import { allBlogs } from 'contentlayer/generated'
 import { Metadata } from 'next'
 import siteMetadata from '@/data/siteMetadata'
 import seriesData from '@/data/seriesData'
-import ListLayoutWithTags from '@/layouts/ListLayoutWithTags'
 import Image from '@/components/Image'
+import PlainListLayout from '@/layouts/PlainListLayout'
+import { dateSortDesc } from 'pliny/utils/contentlayer'
+import ImgurImage, { generateImgurUrl } from '@/components/ImgurImage'
 
 export async function generateMetadata({
   params,
@@ -15,12 +17,15 @@ export async function generateMetadata({
 }): Promise<Metadata | undefined> {
   const slug = decodeURI(params.slug.join('/'))
   const series = seriesData.find((s) => s.id === slug)
+
   if (!series) {
     return
   }
+  const image = generateImgurUrl({ imgurId: series.imgurId, size: 'full', format: 'jpeg' })
+
   const ogImages = [
     {
-      url: series.imgSrc,
+      url: image,
     },
   ]
 
@@ -39,15 +44,9 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title: series.title,
       description: series.description,
-      images: [series.imgSrc],
+      images: [image],
     },
   }
-}
-
-export const generateStaticParams = async () => {
-  const paths = allBlogs.map((p) => ({ slug: p.slug.split('/') }))
-
-  return paths
 }
 
 export default async function Page({ params }: { params: { slug: string[] } }) {
@@ -56,14 +55,17 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
   if (!series) {
     return
   }
-  const posts = allBlogs.filter((p) => p.series === slug)
+  const posts = allBlogs
+    .filter((p) => p.series === slug)
+    .sort((a, b) => (series.inverted ? dateSortDesc(a.date, b.date) : dateSortDesc(b.date, a.date)))
 
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
       <div className="pb-8 pt-6 lg:flex lg:space-x-8">
-        <Image
+        <ImgurImage
+          format="jpeg"
           alt={series.title}
-          src={series.imgSrc}
+          imgurId={series.imgurId}
           className="mb-4 aspect-[1.91] object-cover object-center lg:mb-0"
           height={190}
           width={360}
@@ -75,7 +77,7 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
           <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">{series.description}</p>
         </div>
       </div>
-      <ListLayoutWithTags posts={posts} title={series.title} />
+      <PlainListLayout posts={posts} />
     </div>
   )
 }

@@ -1,0 +1,357 @@
+---
+title: Ultimate Guide to Python One-Liners
+date: '2023-01-01'
+lastmod: '2023-01-01'
+tags: ['python']
+draft: false
+summary: In this article, I'll show how can you write your own Python one-liners to impress your colleagues 🐍
+image: j6poyhA
+---
+
+<TOCInline toc={props.toc} />
+
+Have you ever come across a fancy one-liner in Python that can do what supposedly 10-20 lines of code do?
+
+Here's a simple example:
+
+```python
+## Printing triangle in one-liner
+height = 10
+[print("".join(x)) for x in [[" " if i < k else "#" for i in range(height)] for k in range(height)]]
+```
+
+and the result:
+
+```plaintext
+##########
+ #########
+  ########
+   #######
+    ######
+     #####
+      ####
+       ###
+        ##
+         #
+```
+
+**Warning**: Please don't use this for any real projects, they're cool but bad for eyes
+
+## Prerequisites
+
+You don't expect to just learn it straight away....right?
+
+### List Comprehension
+
+[List Comprehension](https://peps.python.org/pep-0202/) is a <abbr>Syntactic sugar</abbr> that helps Pythonistas to **create a new list easily from existing values**.
+
+Here's an example to show the difference to create a list of increasing integers:
+
+```python
+# Creating a list of [1,2,3,4,...n]
+n = 10
+
+## Using normal way
+li = []
+for i in range(n):
+    li.append(i + 1)
+
+## Using List Comprehension
+li = [i + 1 for i in range(n)]
+```
+
+I hope you'd agree with me that the second approach is shorter 😌
+
+Overall, list comprehension consists of three parts:
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="nQVwgeI"
+  format="png"
+  alt="List Comprehension"
+  width={600}
+  height={400}
+/>
+
+1. **Square Brackets -** List comprehension creates lists, so we wrap them in square brakcets to make it a list.
+    
+2. **The Value** \- This is the value you want to be in the list. You can **call functions**, or do **simple operations**, and the **returned value will be in the list**.
+    
+    ```python
+    [x for x in range(3)] # [0, 1, 2]
+    [i + 1 for i in range(3)] # [1, 2, 3]
+    [j % 2 == 1 for j in range(3)] # [False, True, False]
+    
+    def randomFunction(value):
+        return value + 10
+    [randomFunction(haha) for haha in range(3)] # [10, 11, 12]
+    ```
+    
+3. **The original list** \- This is the source list, where its elements will be fed to **the value**.
+    
+    You can imagine that in list comprehension, we are copying things from **original list** to **new list**. At the same time, we can apply some transformations if we wish to.
+    
+    Does it sound familiar? List comprehension is a lot like map!
+    
+    ```python
+    ## x: x + 1 is a lambda function, which returns x + 1 from x
+    map(x: x + 1, range(3)) # [1, 2, 3]
+    ```
+    
+
+In our quest to writing one liners, list comprehension is like the MVP. It will help us **shorten our for-loops into single lines**.
+
+### Ternary Operators
+
+The [ternary operator](https://en.wikipedia.org/wiki/Ternary_conditional_operator) is yet another syntactic sugar to write a **Yes/No condition**.
+
+If you come from any other languages, this is your ternary operator:
+
+```java
+codition? "YES" : "NO"
+```
+
+But in Python, we have it this way
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="oNquKQv"
+  format="png"
+  alt="Ternary Operator in Python"
+  width={500}
+  height={300}
+/>
+
+```python
+"YES" if condition else "NO"
+# is the same as
+def yesNo(condition):
+    if condition:
+        return "YES"
+    else:
+        return "NO"
+```
+
+So basically, ternary operators will help us to **simplify the logics into a single line**.
+
+### Printing in List Comprehension
+
+**Note:** While the above two are concepts, this is a [bad practice](https://stackoverflow.com/questions/5753597/is-it-pythonic-to-use-list-comprehensions-for-just-side-effects) that you shouldn't use.
+
+Now, very often we need to print something out to impress people with our one-liners right? Certainly, you don't want to print this:
+
+```python
+[['#', '#', '#', '#', '#', '#', '#', '#', '#', '#'],
+ [' ', '#', '#', '#', '#', '#', '#', '#', '#', '#'],
+ [' ', ' ', '#', '#', '#', '#', '#', '#', '#', '#'],
+ [' ', ' ', ' ', '#', '#', '#', '#', '#', '#', '#'], 
+ [' ', ' ', ' ', ' ', '#', '#', '#', '#', '#', '#'], 
+ [' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#', '#'], 
+ [' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#', '#'], 
+ [' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#', '#'], 
+ [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#', '#'], 
+ [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', '#']]
+```
+
+How then?
+
+We will call print while using our list comprehension:
+
+```python
+[print(x) for x in range(3)] # [None, None, None] -> print returns None
+# 0
+# 1
+# 2
+```
+
+Besides, sometimes we might need to use `string.join(list)` or other string / list manipulations to achieve our goals, but nonetheless, these are all the prerequisites.
+
+## Coding Time!
+
+After all the tedious prerequisites, now let's begin 💃
+
+We will attempt to print a nicer triangle 🔼 instead of the half one earlier:
+
+```plaintext
+          #
+         ###
+        #####
+       #######
+      #########
+     ###########
+    #############
+   ###############
+  #################
+ ###################
+```
+
+### Step 1: Writing the Normal Codes
+
+Yes, the first step to one-liners is actually **writing codes the usual way,** we will **transform them into one-liner** later.
+
+What a bummer 💩, I know, but you can **skip this step once you're more familiar**
+
+#### The Math Way
+
+Technically we can do some math to count the spaces and #'s:
+
+```python
+height = 10
+
+for i in range(height):
+    print(" " * (height - i), end="")
+    ## Notice that going down each layer, the sequence is 1,3,5,7,...
+    print("#" * (2 * i + 1))
+```
+
+While this is the usual approach we'll choose, but they're less impressive 🫣
+
+#### The Verbose Way
+
+Notice that I try to minimize the lines in a block, and prefer to use more for & ifs:
+
+```python
+height = 10
+
+for i in range(height):
+    ## This for loop prints this left half triangle /
+    for j in range(height):
+        ## Trying to keep only one if-else or for in each level
+        if j < height - i:
+            print(" ", end="")
+        else:
+            print("#", end="")
+    ## This part prints the right half |\
+    for j in range(i + 1):
+        print("#", end="")
+    print()
+```
+
+### Step 2: Transformation
+
+Since we're using list comprehension, we should try to first get the output in a list like:
+
+```python
+["  #", " ###", "#####"]
+## Or
+[[" ", " ", "#",], [" ", "#", "#", "#"], ["#","#","#","#","#"]]
+```
+
+Then we can print them out one by one through printing list comprehension.
+
+#### The Math Way
+
+Let's transform the simpler math way first,
+
+1. We can start by converting the outermost for loop into a list comprehension
+    
+    ```python
+    [something for i in range(height)] 
+    ```
+    
+2. Next, let's move the logic into our *something*
+    
+    ```python
+    [" " * (height - i) + "#" * (2 * i + 1) for i in range(height)]
+    ## ["  #", " ###", "#####"]
+    ```
+    
+    Notice that I've removed the `print`, though I can keep it there, but let's put `print` last
+    
+3. Printing out, we can either print out right away since the result is already ready, or we can wrap another list comprehension
+    
+    ```python
+    [print(" " * (height - i) + "#" * (2 * i + 1)) for i in range(height)]
+    ## Or
+    [print(x) for x in [" " * (height - i) + "#" * (2 * i + 1) for i in range(height)]]
+    ```
+    
+
+That's it, pretty straight forward right? Let's move on to the more challenging part
+
+#### The Verbose Way
+
+1. Let's first move the outer for-loops
+    
+    ```python
+    [something for i in range(height)]
+    ```
+    
+2. Then the first inner loops, just substitute into *something*
+    
+    ```python
+    [[first_loop for j in range(height)] for i in range(height)]
+    ```
+    
+    Now, how do we move the second inner loop?
+    
+    *that's why it's preferred to have only one if-else and for*
+    
+3. We can simply **concatenate / add** the loops together:
+    
+    ```python
+    # I try to clean it a bit
+    [
+            [first_loop for j in range(height)] +
+            [second_loop for j in range(i + 1)]
+        for i in range(height)
+    ]
+    ```
+    
+4. We now move the if-else into our **ternary operator**
+    
+    ```python
+    [
+            [" " if j < height - i else "#" for j in range(height)] +
+            [second_loop for j in range(i + 1)]
+        for i in range(height)
+    ]
+    ```
+    
+5. Next, the simpler `second_loop`
+    
+    ```python
+    [
+            [" " if j < height - i else "#" for j in range(height)] +
+            ["#" for j in range(i + 1)]
+        for i in range(height)
+    ]
+    ## [[" ", " ", "#",], [" ", "#", "#", "#"], ["#","#","#","#","#"]]
+    ```
+    
+6. Finally, let's print them out, I will use `join` to flatten the inner lists:
+    
+    ```python
+    [
+        print("".join(x)) for x in
+        [
+                [" " if j < height - i else "#" for j in range(height)] +
+                ["#" for j in range(i + 1)]
+            for i in range(height)
+        ]
+    ]
+    ```
+    
+
+Ta-da, now you have an impressive one-liner, after compressing the lines:
+
+```python
+[print("".join(x)) for x in [[" " if j < height - i else "#" for j in range(height)] + ["#" for j in range(i + 1)] for i in range(height)]]
+```
+
+## Summary
+
+Of course, I've only shown a relatively simple shape here, Python's one-liner is quite strong in the sense that you can build a lot with it.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="dQKoD0C"
+  format="png"
+  alt="Warning"
+  width={500}
+  height={300}
+/>
+
+While it is pretty impressive, there's **no readability**.
+
+Again, please **don't use** one-liners in your real projects, no one, including yourself, knows what did you write. Nevertheless, feel free to impress your friends & colleagues with this new skill 😏

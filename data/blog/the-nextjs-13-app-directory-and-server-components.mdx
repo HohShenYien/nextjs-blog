@@ -1,0 +1,548 @@
+---
+title: 'The Next.js App Directory and Server Components Explained'
+date: '2023-05-13'
+lastmod: '2023-05-13'
+tags: ['nextjs', 'react']
+draft: false
+summary: 'Next.js is now recommending the use of App Router by default together with the use of Server Component. Are you ready to embrace the change?'
+image: FQ94F1l
+---
+
+<TOCInline toc={props.toc} />
+
+Next.js has announced a major update in version 13 with its **App Directory Routing**. While it has been beta for a while, it's now finally **stable** and **recommended** for new projects.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="EIZVn22"
+  format="png"
+  alt="Setting up Nextjs project"
+  width={700}
+  height={300}
+/>
+
+The new `app` directory introduces new features like **Route Group**, a new **layout mechanism**, **UI components**, and most importantly, **server components**. There are many other new features from Next.js 13 too, do check out their [changelog](https://nextjs.org/blog/next-13) for more details.
+
+In this article, I'll discuss the new features from `/app` directory and compare with their counterparts in `/page` as well as the cool new **Server Components**.
+
+## Routing
+
+Next.js 13 still supports `/page`, but to enjoy their latest support for Server Components, `/app` is the way to go.
+
+### /page
+
+In `/page` routing, we can either use file-based routing or folder-based routing.
+
+For example, say your base URL is `shenyien.cyou`, then the following pages will be mapped to:
+
+```plaintext
+/pages/index.tsx        => shenyien.cyou/
+/pages/blogs/index.tsx  => shenyien.cyou/blogs/
+/pages/blogs.tsx        => shenyien.cyou/blogs/
+```
+
+Notice that both `/pages/blogs/index.tsx` and `/pages/blogs.tsx` point to the **same endpoint**?
+
+This is possible because, in the past, we could either map the endpoints using the **file name** or **folder + index.tsx.**
+
+### /app
+
+However, in the app directory, there is **no more routing with filenames**. Everything will be **directory**(or folder)-based. Like `/page`'s folder + `index.tsx`, but instead of `index.tsx`, App Directory uses `page.tsx`.
+
+Using the same examples above,
+
+```plaintext
+/app/page.tsx        => shenyien.cyou/
+/app/blogs/page.tsx  => shenyien.cyou/blogs/
+/app/tags/page.tsx   => shenyien.cyou/tags/
+```
+
+Hence, this allows us to place the **different files in the same directory** as the page component. Not sure if you like it, but more options are always better in my opinion.
+
+These are all allowed, and there will only be one `/page1/` endpoint
+
+```plaintext
+/app/page1/page.tsx
+/app/page1/page1.module.scss
+/app/page1/Component1.tsx
+/app/page1/Component2.tsx
+```
+
+## Layouts
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="umBUFoO"
+  format="png"
+  alt="Pages with the same layouts"
+  width={600}
+  height={500}
+/>
+
+In your website, there are usually parts that are **similar across multiple pages**. For example, the header and footer usually do not change much.
+
+And that is what you called **layout** in Next.js. The consistent part of different pages.
+
+### /page - getLayout()
+
+In `/page`, `getLayout` is the [recommended approach](https://nextjs.org/docs/pages/building-your-application/routing/pages-and-layouts) (by Vercel) to implement layout in Next.js. However, while it's recommended, `getLayout` still feels more like a hack than a solution to me.
+
+And it's also somewhat tedious as I have to copy the same thing over for every new app.
+
+```tsx
+export default function MyApp({ Component, pageProps }) {
+  // Use the layout defined at the page level, if available
+  const getLayout = Component.getLayout || ((page) => page)
+
+  return getLayout(<Component {...pageProps} />)
+}
+```
+
+### /app - layout.tsx
+
+In Next.js 13 App, `layout.tsx` is introduced. This `layout.tsx` will be applied to all the pages in the directory.
+
+For example, the `layout.tsx` in `/app/` will be applied to all the pages.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="YzzkN1w"
+  format="jpeg"
+  alt="Same layout is being applied to two different pages"
+  width={600}
+  height={500}
+/>
+
+Meanwhile, the `layout.tsx` in `/app/page1` will only be applied to pages under `/app/page1/...`
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="APkcFmE"
+  format="jpeg"
+  alt="Nested Layout"
+  width={600}
+  height={400}
+/>
+
+Also, all the children layouts will be nested in the parent layout.
+
+_Don't get it? No worry, I'll show more in action later._
+
+### ❌_app.tsx
+
+There is no more `_app.tsx` and `_document.tsx` in `/app` directory.
+
+If you haven't already guessed it, we will place everything in `/app/layout.tsx`, the base layout for every page.
+
+For instance, say you're using [Chakra UI](https://chakra-ui.com/) or [Mantine UI](https://mantine.dev), you'll have to place a provider in the base `_app.tsx`. In the current `/app` directory, you'll have to place the provider in `/app/layout.tsx`. Here's how it typically looks like
+
+```tsx
+// /src/app/Provider.tsx
+// Example: using Mantine
+'use client' // we will get to this in a bit
+
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { Notifications } from '@mantine/notifications'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
+import { ReactNode, useState } from 'react'
+
+const Provider = ({ children }: { children: ReactNode }) => {
+  const [client] = useState(new QueryClient({ defaultOptions: { queries: { staleTime: 5000 } } }))
+
+  return (
+    <QueryClientProvider client={client}>
+      <MantineProvider
+        withGlobalStyles
+        withNormalizeCSS
+        theme={{
+          colorScheme: 'light',
+        }}
+      >
+        <ModalsProvider>{children}</ModalsProvider>
+        <Notifications />
+      </MantineProvider>
+    </QueryClientProvider>
+  )
+}
+
+export default Provider
+```
+
+```tsx
+// /src/app/layout.tsx
+import Provider from './Provider'
+import './globals.css'
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700'],
+})
+
+export const metadata = {
+  title: 'Create Next App',
+  description: 'Generated by create next app',
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Note the use of html & body tags in root layout
+  return (
+    <html lang="en">
+      <Provider>
+        <body className={poppins.className}>{children}</body>
+      </Provider>
+    </html>
+  )
+}
+```
+
+### templates
+
+Like `layout.tsx`, `template.tsx` will be applied to all the pages, but what's the difference?
+
+Template will be re-instantiated during route change, that is, all states will be lost.
+
+Meanwhile, `layout.tsx` is being preserved across different pages.
+
+_You can read more about it in the_ [_docs_](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts#templates)_._
+
+### loading.tsx
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="RRw0W5U"
+  format="jpeg"
+  alt="Loading Component in Next.js"
+  width={600}
+  height={500}
+/>
+
+Similar to `layout.tsx`, you can define a `loading.tsx` which will be **displayed instantly** the user navigates to the page while **waiting for the server to render** the page completely.
+
+## Server Component
+
+This is one of the most significant changes when using app router. There are two **main points** that you will need to know when using Server Components.
+
+### No JavaScript delivered from Server Component
+
+Like SSR, **Server Components will be rendered server-side**, but there will be **no hydration with Js**. That is, Server Components are non-interactive by nature, and cannot access React features like `useState`, `useEffect`, and other DOM operations.
+
+Despite the limitation, it can **significantly reduce the client bundle size.** As long as the dependencies aren't required in clients, they can be eliminated!
+
+```tsx
+// largeFunction won't be included in the output!
+import { largeFunction } from 'large-function'
+
+export default async function LargeComponent() {
+  const result = largeFunction('value')
+
+  // This is the only thing returned to client
+  return <div>{result}</div>
+}
+```
+
+### Server Components can access server functions
+
+_(e.g., fetching server resources, accessing databases)_
+
+In the past, we can only do it with `getServerSideProps`, but now, we can write them in the server component directly!
+
+```tsx
+// This is a server component
+export default async function UserList() {
+  const users = await prisma.users.findMany()
+
+  return (
+    <div>
+      {users.map((user, index) => (
+        <div key={index}>{user.name}</div>
+      ))}
+    </div>
+  )
+}
+```
+
+### Server Component by Default
+
+By default, all components placed in the `/app` directory will be **server component**.
+
+Always be conscious of this, and you won't panic when error occurs.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="ei57IZ9"
+  format="png"
+  alt="Error from using useState in server component"
+  width={700}
+  height={500}
+/>
+
+Next.js will throw an error if you **accidentally use client features** in server components.
+
+With this in mind and the error message, you should be able to track back the last server component that uses client features. (in this case, `/app/page.tsx`)
+
+## Client Component
+
+So... what if we want to opt-out server component feature?
+
+That's simple, we add `"use client"` to the top of the component.
+
+```tsx
+'use client'
+import { useState } from 'react'
+
+const ThisIsClientComponent = () => {
+  // useState is client feature
+  const [value, setValue] = useState('Me')
+  return (
+    <button
+      onClick={() => {
+        // Yes, onclick is a client feature too
+        console.log('Hello')
+        setValue('World')
+      }}
+    >
+      Hello {value}
+    </button>
+  )
+}
+```
+
+## When to use Server / Client Component
+
+So **when exactly should you use server / client** component? Vercel summarized it well [here](https://nextjs.org/docs/getting-started/react-essentials#when-to-use-server-and-client-components)
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="TPsIRNY"
+  format="png"
+  alt="When to use Server vs Client Component"
+  width={500}
+  height={500}
+/>
+
+### Best Practice
+
+As mentioned, the server component is the default option. Thus, **only use client component when you need client feature**.
+
+However, always keep the **client components minimal**. This is to fully leverage the server's power to produce faster page loads for the clients.
+
+In practice, this would mean **smaller components**.
+
+For example, you may have this hero page design _(I made it in draw.io, sorry for the bad look)_
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="UFtERhN"
+  format="png"
+  alt="A simple hero page design"
+  width={400}
+  height={300}
+/>
+
+From the past `/page` routing, you may quickly write something like this, clumping everything in a single component
+
+```tsx
+import Image from 'next/image'
+
+// I simply wrote them, probably looks very off
+const HeroPage = () => {
+  return (
+    <div className="grid grid-cols-2 gap-4 py-12">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold">Shen's Developer Diary</h1>
+        <div className="text-lg text-gray-600">This is where I write blogs</div>
+        <button
+          className="mt-4 bg-red-400 text-black"
+          onClick={() => {
+            //do something...
+          }}
+        >
+          Check them out
+        </button>
+      </div>
+      <div className="flex items-center justify-center">
+        <Image src="/hero.png" height="400" width="400" />
+      </div>
+    </div>
+  )
+}
+```
+
+However, with server component, Next.js actually encourages us to **break them down**! We can quickly identify the **button** being the only part that needs client feature, so we can just segment it out
+
+```tsx
+'use client'
+
+const HeroButton = () => {
+  return (
+    <button
+      className="bg-red-400 text-black"
+      onClick={() => {
+        //do something...
+      }}
+    >
+      Check them out
+    </button>
+  )
+}
+```
+
+And using it in the server component...
+
+```tsx
+const HeroPage = () => {
+  return (
+    <div className="grid grid-cols-2 gap-4 py-12">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold">Shen's Developer Diary</h1>
+        <div className="text-lg text-gray-600">This is where I write blogs</div>
+        <HeroButton />
+      </div>
+      <div className="flex items-center justify-center">
+        <Image src="/hero.png" height="400" width="400" />
+      </div>
+    </div>
+  )
+}
+```
+
+While it may seem extra to some, I think this is an amazing feature! It encourages us to write smaller, more reusable components.
+
+We keep data to server components, while interactivity to client components. At the same time, we will extract business logic from components which can then be shared between server and client components.
+
+## Bonus
+
+There are also a few interesting features in Next.js 13 that help with the Server Component
+
+### Server-only Functions
+
+You might have written some functions that are only intended for server-side, but not client-side. While adding a comment on top of the file sounds like an idea, but Vercel has an even [better option](https://nextjs.org/docs/getting-started/react-essentials#the-server-only-package), `server-only`
+
+By importing the package, everything in the file will be marked as server-only, and will throw error if you try to import it from the client
+
+```tsx
+import 'server-only' // needs to be installed
+
+export function serverOnlyFunction() {
+  // do something...
+  console.log('Should be called by server only')
+}
+```
+
+If I ever try to import it into a client component,
+
+```tsx
+'use client'
+// component from my next-power-starter
+// https://github.com/HohShenYien/next-power-starter
+
+import Button from '@/components/buttons/Button'
+import { serverOnlyFunction } from '@/lib/serverFunction'
+import openModal from '@/utils/modals/openModal'
+import { helloWorldModal } from '@/utils/modals/types'
+
+const OpenModalButton = () => {
+  return (
+    <Button
+      className="text-xl"
+      onClick={() => {
+        serverOnlyFunction()
+        openModal({
+          type: helloWorldModal,
+          innerProps: { name: 'Shen Yien' },
+        })
+      }}
+    >
+      Show Hello World Modal
+    </Button>
+  )
+}
+
+export default OpenModalButton
+```
+
+And boom!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="gVvMZ2U"
+  format="png"
+  alt="Error in importing server-only function in Client Component"
+  width={600}
+  height={500}
+/>
+
+### Async Component
+
+If you notice from earlier, I used the `async` keyword in the server component!
+
+```tsx
+export default async function UserList() {
+  const users = await prisma.users.findMany()
+
+  return (
+    <div>
+      {users.map((user, index) => (
+        <div key={index}>{user.name}</div>
+      ))}
+    </div>
+  )
+}
+```
+
+Unlike the traditional component, Server Component will be rendered by the server. This means that all **async components will be resolved** by the server before being sent to the client!
+
+### Fetch Caching
+
+Using `fetch` in server component now **caches the results**!
+
+For example, you can specify the expiry time to 10s
+
+```tsx
+const ServerComponent = () => {
+  // This data will be cached for 10s
+  const revalidatedData = await fetch(`https://...`, {
+    next: { revalidate: 10 },
+  })
+}
+```
+
+Again, this will optimize many resource fetching and ultimately speed up the user load time.
+
+## Drawbacks
+
+Despite the new features, Server Component and App Router do have some minor drawbacks.
+
+### Complexity
+
+Most significantly, the **complexity** of the project. With server component, you will have to spend extra minutes in segregating the components to prevent server components using client features.
+
+_(I suspect that many will just throw a_ `"use client"` _eventually when they encounter an issue under time pressure, completely neglecting the benefit of server components)_
+
+### UI Libraries Lacking Behind
+
+As Server Components are still relatively new, many UI Libraries aren't catching up with it yet.
+
+For example, [Chakra UI](https://chakra-ui.com/getting-started/nextjs-guide) and [Mantine](https://mantine.dev) are still developing for Server Components. Hence, the current solution to using these components is to contain them in a separate component with `"user client"` even when Client feature is not used.
+
+Another alternative is to re-export them with `"use client"` directive:
+
+```tsx
+'use client'
+
+import { Text } from '@mantine/core'
+
+export default Text
+```
+
+## Last Words
+
+I don't know about you, but I'm very excited about Server Components and App Directory! I have been waiting for them to be stable since early Next.js 13.
+
+As I explore further, they do seem to improve many aspects of Next.js development.
+
+However, there is still **no official benchmark** on the improvements, and the **optimization might not be needed** in many cases, especially for small projects or when client rendering isn't a bottleneck to the operation.
+
+Hence, my only advice to you is to research more in terms of pros and cons before hopping into this new architecture. _(unless it's just a personal project, of course)_

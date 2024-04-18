@@ -8,6 +8,8 @@ summary: 'A step-by-step guide to managing client-side authentication with cooki
 image: ffMnjbK
 ---
 
+<TOCInline toc={props.toc} />
+
 It's always been a hassle to manage authentication especially when it comes to **setting up a new project**.
 
 I'll be honest, despite having more than a year or two's experience in web development, it's still difficult to implement a **client-side authentication that just works**. However, recently, I was working on a web application that requires it, and after quite some trials and errors, I came up with my own **template for authentication**!
@@ -149,7 +151,7 @@ API login will set a `http-only` cookie to **identify the user** if the credenti
 
 However, to get the cookie part working in Next.js API, you will need **an additional library** _(which you won't be needing if you're using other API servers)_
 
-```typescript
+```bash
 yarn add cookies-next
 ```
 
@@ -325,21 +327,21 @@ PS: The queries are basic, but insufficient currently.
 
 Firstly, that's get the login form out for you to check if things work
 
-```typescript
+```tsx
 // src/pages/index.tsx
-import Header from "@/components/Header";
-import { useGetCurrentUserQuery, useLoginMutation } from "@/queries/auth";
-import Head from "next/head";
-import { useState } from "react";
+import Header from '@/components/Header'
+import { useGetCurrentUserQuery, useLoginMutation } from '@/queries/auth'
+import Head from 'next/head'
+import { useState } from 'react'
 
 export default function Home() {
-  const [email, setEmail] = useState("john@gmail.com");
-  const [password, setPassword] = useState("secret");
-  const mutation = useLoginMutation();
+  const [email, setEmail] = useState('john@gmail.com')
+  const [password, setPassword] = useState('secret')
+  const mutation = useLoginMutation()
 
   const onSubmit = async () => {
-    await mutation.mutate({ email, password });
-  };
+    await mutation.mutate({ email, password })
+  }
   return (
     <>
       <main>
@@ -347,27 +349,22 @@ export default function Home() {
         {/* This is a bad pattern, use something better in your project */}
         <div>
           {mutation.isLoading
-            ? "Loading"
+            ? 'Loading'
             : mutation.isError
-            ? "Invalid credentials, please try again"
-            : mutation.isSuccess
-            ? "Login successfully, please wait while we redirect you..."
-            : ""}
+              ? 'Invalid credentials, please try again'
+              : mutation.isSuccess
+                ? 'Login successfully, please wait while we redirect you...'
+                : ''}
         </div>
         <form
           onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
+            e.preventDefault()
+            onSubmit()
           }}
         >
           <label>
             Email
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              type="email"
-            />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} required type="email" />
           </label>
           <label>
             Password
@@ -380,24 +377,24 @@ export default function Home() {
           </label>
 
           <button type="submit" disabled={mutation.isLoading}>
-            {mutation.isLoading ? "Loading" : "Submit"}
+            {mutation.isLoading ? 'Loading' : 'Submit'}
           </button>
         </form>
       </main>
     </>
-  );
+  )
 }
 ```
 
 And here's the header before you ask me
 
-```typescript
+```tsx
 // src/components/Header.tsx
-import { useLogoutMutation } from "@/queries/auth";
-import Link from "next/link";
+import { useLogoutMutation } from '@/queries/auth'
+import Link from 'next/link'
 
 const Header = () => {
-  const logoutMutation = useLogoutMutation();
+  const logoutMutation = useLogoutMutation()
   return (
     <nav>
       <Link href="/">Home</Link>
@@ -407,10 +404,10 @@ const Header = () => {
         Logout
       </a>
     </nav>
-  );
-};
+  )
+}
 
-export default Header;
+export default Header
 ```
 
 And you should be seeing the form when you start the web server with `yarn dev` or equivalent. _(I have added some additional styles, which don't matter here)_
@@ -513,7 +510,7 @@ So how do we make certain page accessible to **public** while others only availa
 
 I was inspired by Next.js's [Layout Pattern](https://nextjs.org/docs/pages/building-your-application/routing/pages-and-layouts#layout-pattern) to attach the information as the component's properties
 
-```typescript
+```tsx
 // src/pages/index.tsx
 const Home = () => {
   ...
@@ -525,37 +522,37 @@ export default Home;
 
 To make it **compatible with TypeScript**, let's also add the types
 
-```typescript
+```tsx
 // src/pages/_app.tsx
 
 // Again, this is referenced from Next.js documentation
-import "@/styles/globals.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { NextPage } from "next";
-import type { AppProps } from "next/app";
-import { useState } from "react";
+import '@/styles/globals.css'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { NextPage } from 'next'
+import type { AppProps } from 'next/app'
+import { useState } from 'react'
 
 export type NextPageWithProperties<P = {}, IP = P> = NextPage<P, IP> & {
-  isPublic?: boolean;
-};
+  isPublic?: boolean
+}
 
 type AppPropsWithProperties = AppProps & {
-  Component: NextPageWithProperties;
-};
+  Component: NextPageWithProperties
+}
 
 export default function App({ Component, pageProps }: AppPropsWithProperties) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient())
   return (
     <QueryClientProvider client={queryClient}>
       <Component {...pageProps} />
     </QueryClientProvider>
-  );
+  )
 }
 ```
 
 and using it with the Home,
 
-```typescript
+```tsx
 // src/pages/index.tsx
 const Home: NextPageWithProperties = () => {
 ```
@@ -566,11 +563,11 @@ _PS: Changing component properties will require a_ **_full refresh_** _to take e
 
 Lastly, let's also add a protected page which is not public.
 
-```typescript
+```tsx
 // src/pages/protected.tsx
-import Header from "@/components/Header";
-import Head from "next/head";
-import { NextPageWithProperties } from "./_app";
+import Header from '@/components/Header'
+import Head from 'next/head'
+import { NextPageWithProperties } from './_app'
 
 const Protected: NextPageWithProperties = () => {
   return (
@@ -587,13 +584,13 @@ const Protected: NextPageWithProperties = () => {
         <h1>This is a protected page</h1>
       </main>
     </>
-  );
-};
+  )
+}
 
 // this will require authentication
-Protected.isPublic = false;
+Protected.isPublic = false
 
-export default Protected;
+export default Protected
 ```
 
 So in the end, we will have two pages,
@@ -620,32 +617,32 @@ It works by acting as a **wrapper** around the page, by examining the page's `is
 
 Let's first make a wrapper around the main component in `_app.ts`
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
-import { NextPageWithProperties } from "@/pages/_app";
+import { NextPageWithProperties } from '@/pages/_app'
 interface RouteGuardProps {
-  Component: NextPageWithProperties;
-  pageProps: any;
+  Component: NextPageWithProperties
+  pageProps: any
 }
 
 const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
-  return <Component {...pageProps} />;
-};
+  return <Component {...pageProps} />
+}
 
-export default RouteGuard;
+export default RouteGuard
 ```
 
 And wrapping it in our `_app.tsx`
 
-```typescript
+```tsx
 // src/pages/_app.tsx
 export default function App({ Component, pageProps }: AppPropsWithProperties) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient())
   return (
     <QueryClientProvider client={queryClient}>
       <RouteGuard Component={Component} pageProps={pageProps} />
     </QueryClientProvider>
-  );
+  )
 }
 ```
 
@@ -653,14 +650,14 @@ export default function App({ Component, pageProps }: AppPropsWithProperties) {
 
 Right now, the `RouteGuard` isn't doing much, let's start by **blocking all non-public** pages to see it working.
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
   if (!Component.isPublic) {
-    return "You are unauthenticated to view";
+    return 'You are unauthenticated to view'
   }
-  return <Component {...pageProps} />;
-};
+  return <Component {...pageProps} />
+}
 ```
 
 Heading back to the website, and visit `/protected`, the page should look blocked to you
@@ -678,7 +675,7 @@ Of course, while this works, you'd typically want to **redirect** the user inste
 
 Let's use `useEffect` to redirect the users to `/` when they visit a non-public page. What about the dependency? We can examine the page's `isPublic` whenever they **visit a new page**, so that's when the `Component` changes.
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
   const router = useRouter();
@@ -698,7 +695,7 @@ Of course, that'd be bad. Even authenticated users wouldn't be able to visit the
 
 It's time to add the `useGetCurrentUserQuery` we created earlier so that the `RouteGuard` knows the context.
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 const currentUser = useGetCurrentUserQuery()
 ```
@@ -707,7 +704,7 @@ and instead, the protected page should only be blocked if the page is **non-publ
 
 Let's modify the conditions
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 const isAuthenticated = Component.isPublic || currentUser.isSuccess
 
@@ -732,7 +729,7 @@ That is, what if the user refresh the page when they are in a non-public page, c
 
 We will now need to consider a third condition, when `isAuthenticated` is **loading**.
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 useEffect(() => {
   if (!isAuthenticated && !currentUser.isLoading) {
@@ -754,7 +751,7 @@ Likewise, you should display some loading page when the query is running initial
 
 To do that, we will add another condition, we will only show the splash screen if the page is **private**, otherwise, why want to delay user flow right?
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 if (session.status === 'loading' && !Component.isPublic) {
   // Feel free to change this to a nice SplashScreen component
@@ -772,40 +769,40 @@ All you need is some nice-looking UI and good logic, then it's another project d
 
 Here are the full codes for `RouteGuard.tsx`
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
-import { NextPageWithProperties } from "@/pages/_app";
-import { useGetCurrentUserQuery } from "@/queries/auth";
-import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { NextPageWithProperties } from '@/pages/_app'
+import { useGetCurrentUserQuery } from '@/queries/auth'
+import { useRouter } from 'next/router'
+import { useEffect } from 'react'
 interface RouteGuardProps {
-  Component: NextPageWithProperties;
-  pageProps: any;
+  Component: NextPageWithProperties
+  pageProps: any
 }
 
 const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
-  const router = useRouter();
-  const currentUser = useGetCurrentUserQuery();
-  const isAuthenticated = Component.isPublic || currentUser.isSuccess;
+  const router = useRouter()
+  const currentUser = useGetCurrentUserQuery()
+  const isAuthenticated = Component.isPublic || currentUser.isSuccess
 
   useEffect(() => {
     if (!isAuthenticated && !currentUser.isLoading) {
-      router.push("/"); // or login page
+      router.push('/') // or login page
     }
-  }, [Component]);
+  }, [Component])
 
   if (currentUser.isLoading) {
-    return "Loading...";
+    return 'Loading...'
   }
 
   if (!isAuthenticated) {
-    return "You are unauthenticated to view";
+    return 'You are unauthenticated to view'
   }
 
-  return <Component {...pageProps} />;
-};
+  return <Component {...pageProps} />
+}
 
-export default RouteGuard;
+export default RouteGuard
 ```
 
 Do read on though, there's a bonus section and some alternatives.
@@ -883,30 +880,29 @@ export const useGetCurrentUserQuery = () => {
 
 No complex logic, but a simple hook can make our lives so much easier. Let's now head to `RouteGuard` and replace the query with `useSession`
 
-```typescript
+```tsx
 // src/components/RouteGuard.tsx
 const RouteGuard = ({ Component, pageProps }: RouteGuardProps) => {
-  const router = useRouter();
-  const session = useSession();
-  const isAuthenticated =
-    Component.isPublic || session.status === "authenticated";
+  const router = useRouter()
+  const session = useSession()
+  const isAuthenticated = Component.isPublic || session.status === 'authenticated'
 
   useEffect(() => {
-    if (!isAuthenticated && session.status !== "loading") {
-      router.push("/");
+    if (!isAuthenticated && session.status !== 'loading') {
+      router.push('/')
     }
-  }, [Component, session.status]);
+  }, [Component, session.status])
 
-  if (session.status === "loading" && !Component.isPublic) {
-    return "Loading...";
+  if (session.status === 'loading' && !Component.isPublic) {
+    return 'Loading...'
   }
 
   if (!isAuthenticated) {
-    return "You are unauthenticated to view";
+    return 'You are unauthenticated to view'
   }
 
-  return <Component {...pageProps} />;
-};
+  return <Component {...pageProps} />
+}
 ```
 
 I don't know about you, but I certainly prefer this way more (They call it **abstraction**). You can even further improve this with `isAuthenticated`, `isUnauthenticated`, `isLoading`...

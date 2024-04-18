@@ -1,0 +1,277 @@
+---
+title: "Rebuilding My Portfolio Website from Scratch"
+date: '2022-12-19'
+lastmod: '2022-12-19'
+tags: ['portfolio', 'design', 'react']
+draft: false
+summary: Let’s have a look at the technologies, thought processes and design considerations involved in developing the third version of my portfolio website.
+image: 6E5ivXw
+---
+
+<TOCInline toc={props.toc} />
+
+I have decided to **omit the detailed implementations** of the website as you can easily find them in my GitHub, and the **process had been a more important experience** to me compared to the actual coding.
+
+By the way, here's the [website](https://shenyien.cyou).
+
+## UI Design
+
+This has often been my weak spot in developing the front-end unless there has been an established design system.
+
+### References
+
+Being a typical programmer, I explored a lot of other sites for ***references***, this includes portfolio pages from designers, studios and programmers. These few were my favorites, and I’m sure you have seen some of them as they are always used as examples of good websites:
+
+1.  Diegovz’s and Kuon Yagi’s had been my references since the second version, I did take some minor references this time.
+
+    <ImgurImage
+        size="huge thumbnail"
+        imgurId="sXnK8hF"
+        format="png"
+        alt="Diegovz's Portfolio Website"
+        width={700}
+        height={400}
+        href="https://diegovz.com/en/"
+        />
+    
+    <ImgurImage
+        size="huge thumbnail"
+        imgurId="YCDio1X"
+        format="png"
+        alt="Kuon Yagi's Portfolio"
+        width={700}
+        height={400}
+        href="https://kuon.space"
+        />
+    
+2.  I watched quite some [Design Course](https://www.youtube.com/@DesignCourse)’s videos to fill up my UI knowledge, and those certainly brought some inspiration to me, especially his UI Review/Redesign series!
+    
+3.  Finally, I have decided to take Brittany Chiang’s website as my main reference as it happened to be many’s favorites, so you can see the overall theme and feel that resembled hers a lot.
+
+    <ImgurImage
+        size="huge thumbnail"
+        imgurId="AtYW2jz"
+        format="png"
+        alt="Brittany's Website"
+        width={700}
+        height={400}
+        href="https://brittanychiang.com"
+        />
+    
+
+### Theme and Color
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="6f2qZAj"
+  format="jpg"
+  alt="Rainbow"
+  width={300}
+  height={200}
+/>
+
+Referring to Brittany’s website, I knew that I was going to have a **dark** theme website (I dislike light themes anyways), but diving into the design, I needed to figure out the theme colors.
+
+*I know I know, design with black and white first to focus on spacing, etc., but I didn’t plan to spend too long over designing, so nah*
+
+**Blue** — The professional color, but I felt like it’s been a bit overused these days (totally subjective)
+
+**Red, Green, and Yellow** — On the Rarer side, but they often represent some signals, and I wanted to avoid that. I also skipped turquoise so that my website does not look the same as Brittany’s.
+
+What other colors are there? I looked at the rainbow 🌈, and right away, **violet** came into my eyes.
+
+**Violet** — Pretty unique, huh? Not as striking as pink, not as enthusiastic as orange, kinda premium, and [they said](https://www.verywellmind.com/the-color-psychology-of-purple-2795820) it’s a sign of wisdom. That’s it, purple!
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="EwqPlnj"
+  format="png"
+  alt="Background colors from Tailwind"
+  width={500}
+  height={400}
+  href="https://tailwindcss.com/docs/background-color"
+/>
+
+I then took the base variants of my purple from [Tailwinds](https://tailwindcss.com) 😆 (with some adjustments, of course)
+
+### Logo
+
+Settling the theme color means that I can come up with my logo!
+
+Since I wasn’t good at art, I decided to just use the “S” of my name, but how should the S look like?
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="3xa1kkG"
+  format="png"
+  alt="Prometheus' logo"
+  width={700}
+  height={300}
+/>
+
+This time, I was inspired by one of the developers I looked up to, [Prometheus’ blog](https://halfrost.com/) logo, I wanted a flame of S too. **A purple flame that looks like S**!
+
+I started to [google](https://www.google.com/search?q=s+letter+fire) for some samples, opened up my good o’ [Inkscape](https://inkscape.org/) and doodled out this logo. (I remember referring to some images, but couldn’t find them anymore 😞)
+
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="vl0Loun"
+  format="png"
+  alt="Brand new logo"
+  width={200}
+  height={200}
+/>
+
+### Prototyping
+
+Finally, it’s time for Figma! 🎨
+
+Combining the references, some tips from here and there, as well as some of my touches, here it goes
+
+*A very rough design, as I decided to touch up when I code, oh and I only included the hero section here*
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="D5CEomQ"
+  format="png"
+  alt="Rough Figma Design"
+  width={600}
+  height={600}
+/>
+
+Some other considerations and references I made here are:
+
+1.  Using some *background watermarks* to make my hero section less empty
+    
+2.  I saw quite a few places advising to put a **face** on Hero section, and I wanted to make it less formal, so yeah a **funny me should drop from the side**
+    
+3.  I really like [PocketBase](https://pocketbase.io/)’s Gopher interaction, so I copied over the interaction
+    
+    <ImgurImage
+        size="huge thumbnail"
+        imgurId="kVJWfZ7"
+        format="png"
+        alt="Cute Gopher from PocketBase"
+        width={700}
+        height={400}
+        href="https://pocketbase.io/"
+        />
+    
+4.  I also wanted to dedicate a full section to my skills and tools used
+    
+
+* * *
+
+Phew, finally done with designing, I think it took me about a week or two of on’s and off’s for this whole process.
+
+Admittedly, this isn’t been the best design, but I’m pretty satisfied with what I have 😍
+
+## Development
+
+So, here’s the real part, again, I won’t dive into the nitty-gritty of coding, but here’s a general overview of it.
+
+### Techs and Frameworks
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="ioVD3hn"
+  format="png"
+  alt="Chakra UI"
+  width={600}
+  height={200}
+  href="https://chakra-ui.com"
+/>
+
+I built my previous version with Vue + Nuxt, pretty neat, but I didn’t like Vuetify as much now due to its **heavy presets**, and I had the best experience with **Chakra UI** now, so my final decision is:
+
+**React + Next.js + Chakra UI**
+
+I avoided vanilla React since it has many [issues](https://liaogg.medium.com/its-time-to-stop-using-create-react-app-a99917dbfc) and Next.js is [awesome](https://www.youtube.com/watch?v=_w0Ikk4JY7U)!
+
+Aside from those, I also added **Typescript** <s>to showcase my knowledge</s> since Javascript is simply incomplete without types. Likewise, I added support for **Sass for a** better development experience.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="q3OJcdV"
+  format="jpg"
+  alt="Zustand"
+  width={600}
+  height={300}
+  href="https://github.com/pmndrs/zustand"
+/>
+
+Finally, I figured out that I needed a store for my modals since we all know that [useContext is bad](https://medium.com/@athletecoder/avoid-usecontext-to-handle-your-global-state-in-react-c12454356e2a), and I preferred [Zustand](https://github.com/pmndrs/zustand) over Redux due to its simpler interface (and who doesn't like bear? 🐻).
+
+### Animations
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="YW1XG2T"
+  format="gif"
+  alt="Animation in my website"
+  width={600}
+  height={300}
+/>
+
+To make the website more **interactive** and **livelier**, I introduced several animations into it.
+
+Coding plain animation in CSS is really tedious, especially the part of managing a never-ending list of classes, so I resorted to using [Framer Motion](https://www.framer.com) due to its **simplicity**.
+
+The primary types of animations were **scroll-triggered**, which can be done easily through Framer Motion’s [whileInView](https://www.framer.com/docs/scroll-animations/#scroll-triggered-animations) props, and so I defined a list of **fade-in** animations for this purpose.
+
+*Yeah, I’m aware of the Animate On Scroll library, but I don’t feel like using it.*
+
+One of the best parts of Framer Motion was the ability to [trigger the animation programmatically](https://www.framer.com/docs/use-animation-controls/) and the [Spring transition](https://www.framer.com/docs/transition/#spring), both of which have been used on my website.
+
+Lastly, I also used [Lottie](https://lottiefiles.com/) for some quick and nice animation.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="lgd8SCK"
+  format="gif"
+  alt="Page not found Lottie animation"
+  width={400}
+  height={400}
+/>
+
+### Page Content
+
+In the second version, the content was stored separately in each component, which made it hard to modify (not exactly hard, but kinda tedious to find where are the values), so I dedicated a folder for the **contents of each section & page**.
+
+<ImgurImage
+  size="full"
+  imgurId="T34vZPl"
+  format="png"
+  alt="File structure of the contents"
+  width={700}
+  height={400}
+/>
+
+This has made my life much easier to insert and edit any text on my website!
+
+### Clean Codes
+
+Finally, I also made some effort into ensuring the **cleanliness of the codes**, so that they can be maintained and updated easily.
+
+Here are some principles / decisions I took:
+
+1.  The use of **Barrel Files** (The index.ts to import and re-export everything from the same folder) — Just an experiment by myself in using this structure, and I kinda enjoy it since it simplifies my imports
+    
+2.  **Small Components** — I also tried my best to minimize the number of lines in a component for readability, and I managed to keep most components within 50 - 100 lines!
+    
+3.  **Minimize Repetition** — I didn’t want my codes to be long and ugly, so I added some wrapper components & utility functions, like **ImgurImage**, one of my favorite components I wrote
+    
+    <ImgurImage
+        size="huge thumbnail"
+        imgurId="9w2W5pg"
+        format="png"
+        alt="Cleaner codes"
+        width={500}
+        height={500}
+        />
+    
+
+## Summary
+
+This has been an amazing experience 🤩 I certainly recommend every starting programmer build something fully on their own. The feeling of developing something from scratch is different from developing on top of an existing program.

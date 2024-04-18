@@ -1,0 +1,1088 @@
+---
+title: 'Insta-Next: Authentication with NextAuth'
+date: '2023-04-07'
+lastmod: '2023-04-07'
+tags: ['nextjs', 'react', 'nextauth', 'react', 'prisma']
+draft: false
+series: 'insta-next'
+summary: "In this part, let's try to implement authentication for our InstaNext app using NextAuth.js"
+image: IUwsXlN
+---
+
+<TOCInline toc={props.toc} />
+
+In this part, we will be building the **authentication** part of the web application using [NextAuth.js](https://next-auth.js.org/).
+
+Particularly, we will look into the process of **login** and **registration**, as well as **retrieving the active user** information from the backend. Finally, we will also secure the API routes with [Middleware](https://nextjs.org/docs/advanced-features/middleware).
+
+If you've missed the previous parts, you can continue from where we left off the [last part](https://github.com/HohShenYien/insta-next/tree/part5-post-story-modal).
+
+_Sneak Peek:_
+
+<ImgurImage
+  size="full"
+  imgurId="IsAueZ9"
+  format="png"
+  alt="Sneak Peek of completion for this chapter"
+  width={800}
+  height={600}
+/>
+
+## NextAuth
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="2W1ADqL"
+  format="png"
+  alt="Screenshot of NextAuth landing page"
+  width={600}
+  height={400}
+  caption="Looks like they're rebranding as Auth.js, extending beyond Next.js"
+/>
+
+Unsurprisingly, NextAuth is the **authentication for Next.js**.
+
+Unlike the traditional SPAs which needs to maintain session tokens manually on the frontend, Next.js **abstracts** all these processes, so all we need to do is defining the configurations and it'll be ready to go!
+
+Some other benefits of NextAuth:
+
+1. To **login and logout**, we simply call a function `signIn` or `signOut` on the client (frontend).
+2. The **client** can easily get the user's information from the token using `getSession`.
+3. The **server** can retrieve the active user's information using `getServerSession`.
+4. Can integrate a range of **third-party providers** like Google easily (no need the usual extra libraries)
+5. Integrate well with **libraries** like `Prisma`
+
+I hope that's enough to convince you, regardless, this tutorial is going to use NextAuth.
+
+## Setting Up
+
+Most of these are taken directly from NextAuth's [documentation](https://next-auth.js.org/getting-started/introduction)
+
+### Dependency
+
+As usual, let's just install the node package
+
+```bash
+yarn add next-auth
+```
+
+### Database Preparation
+
+However, before we can proceed, we must make some changes to our database schema to fulfill [NextAuth's requirements](https://next-auth.js.org/v3/adapters/models). By default, NextAuth requires the IDs to be in **String** instead of a number that we're currently implementing. Besides, they also need another Model called Session to store session info.
+
+Since we're changing, we might as well use String for the Post and Story to keep them consistent
+
+```typescript
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String         @id @default(cuid())
+  username    String         @unique
+  email       String         @unique
+  password    String
+  description String         @default("")
+  created_at  DateTime       @default(now())
+  followers   UserFollower[] @relation("followers")
+  followings  UserFollower[] @relation("followings")
+  posts_liked PostLike[]
+  posts       Post[]
+  stories     Story[]
+  Session     Session[]
+}
+
+model Post {
+  id         String     @id @default(cuid())
+  caption    String
+  user_id    String
+  user       User       @relation(fields: [user_id], references: [id])
+  liked_bys  PostLike[]
+  created_at DateTime   @default(now())
+}
+
+model Story {
+  id         String   @id @default(cuid())
+  caption    String
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+  created_at DateTime @default(now())
+}
+
+model Image {
+  id            Int    @id @default(autoincrement())
+  type          String
+  url           String
+  associated_id String
+  sequence      Int
+}
+
+model UserFollower {
+  user_id     String
+  user        User     @relation("followers", fields: [user_id], references: [id])
+  follower_id String
+  follower    User     @relation("followings", fields: [follower_id], references: [id])
+  created_at  DateTime @default(now())
+
+  @@id([user_id, follower_id])
+}
+
+model PostLike {
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
+  post_id    String
+  post       Post     @relation(fields: [post_id], references: [id])
+  created_at DateTime @default(now())
+
+  @@id([user_id, post_id])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  user_id      String
+  expires      DateTime
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+```
+
+Then, let's run the migration again
+
+```bash
+yarn migrate
+```
+
+_PS: There'll probably be a warning about resetting the database, just enter yes, but we will seed the database later, not now_
+
+You might also want to update the types for these files
+
+1. `attach-image.ts`
+2. `findSinglePost.ts`
+3. `[post_id]/index.ts`
+4. `[post_id]/likeds.ts`
+5. `findPostLikedUsers`
+6. `modals/types.ts`
+7. `api/posts.ts`
+8. `posts/Liked/PostLiked.tsx`
+
+Nothing of significant concern here, just some type changes.
+
+### NextAuth Configuration
+
+To use NextAuth properly, we will need to set another environment variable, `NEXTAUTH_SECRET` as a secret key for generating JWT tokens, you can use this [UUID generator](https://www.uuidgenerator.net/) to create a **unique secret** for yourself, but here's mine
+
+```
+# .env
+DATABASE_URL="postgresql://postgres:secret@localhost:5432/instanext"
+NEXTAUTH_SECRET=4411c946-fa73-481a-8c54-f0df76105a57
+```
+
+All auth APIs will be handled by `src/pages/api/auth/[...nextauth].ts`, which is also where all the **NextAuth configurations** lie. Let's just copy the [example](https://next-auth.js.org/getting-started/example#add-api-route) given from the documentation
+
+```typescript
+// src/pages/api/auth/[...nextauth].ts
+import NextAuth from 'next-auth'
+import GithubProvider from 'next-auth/providers/github'
+
+export const authOptions = {
+  // Configure one or more authentication providers
+  providers: [
+    GithubProvider({
+      clientId: process.env.GITHUB_ID,
+      clientSecret: process.env.GITHUB_SECRET,
+    }),
+    // ...add more providers here
+  ],
+}
+
+export default NextAuth(authOptions)
+```
+
+#### Prisma Adapter
+
+Next, we must make sure NextAuth can read the user's info from our **database**. To achieve this, we will rely on NextAuth's [Prisma Adapter](https://authjs.dev/reference/adapter/prisma)
+
+```bash
+yarn add @next-auth/prisma-adapter
+```
+
+And we can proceed to add Prisma Adapter to our configuration, I also deleted the `GitHubProvider` for now
+
+```typescript
+// src/pages/api/auth/[...nextauth].ts
+import prisma from "@/utils/prisma";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+...
+export const authOptions: AuthOptions = {
+  adapter: PrismaAdapter(prisma),
+}
+```
+
+Certainly, we aren't planning to use GitHub as our provider now. Instead, we will look at [Credential Authentication](https://next-auth.js.org/providers/credentials). Copying over the codes, and updating to use Prisma in our implementation,
+
+```typescript
+export const authOptions: AuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  // JWT for credentials
+  session: {
+    strategy: 'jwt',
+  },
+  // Configure one or more authentication providers
+  providers: [
+    CredentialsProvider({
+      name: 'Credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials, req) {
+        const user = await prisma.user.findFirstOrThrow({
+          where: {
+            email: credentials?.email,
+          },
+        })
+        const userWithImage = await attachImage(user, 'user')
+
+        if (user) {
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.username,
+            image: userWithImage.profile_pic?.url,
+          }
+        } else {
+          return null
+        }
+      },
+    }),
+  ],
+}
+```
+
+#### Password Encryption
+
+Almost there, we still need one last thing, password hashing. **Storing passwords in plaintext is the last thing you'd want to do**.
+
+We will use the famous [bcrypt](https://www.npmjs.com/package/bcrypt) for this
+
+```bash
+yarn add bcrypt
+yarn add -D @types/bcrypt # to get the type declaration
+```
+
+Let's add some password features
+
+```typescript
+// src/features/password/hashPassword.ts
+import { hash } from 'bcrypt'
+
+const hashPassword = async (password: string) => {
+  return await hash(password, 12)
+}
+
+export default hashPassword
+
+// src/features/password/comparePassword .ts
+import { compare } from 'bcrypt'
+
+const comparePassword = async (plainTextPassword: string, hashedPassword: string) => {
+  return await compare(plainTextPassword, hashedPassword)
+}
+
+export default comparePassword
+```
+
+We can now check the password properly!
+
+```typescript
+// src/pages/api/auth/[...nextauth].ts
+...
+        const user = await prisma.user.findFirstOrThrow({
+          where: {
+            email: credentials?.email,
+          },
+        });
+        const isValid = await comparePassword(
+          credentials?.password ?? "",
+          user.password
+        );
+        const userWithImage = await attachImage(user, "user");
+
+        if (user && isValid) {
+          // these are the data that the frontend can acquire
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.username,
+            image: userWithImage.profile_pic?.url,
+          };
+        } else {
+          return null;
+        }
+```
+
+Finally, let's update our user factory to use **hashed password** instead,
+
+```typescript
+// prisma/factories/user.ts
+import { faker } from '@faker-js/faker'
+import { Prisma } from '@prisma/client'
+import { hashSync } from 'bcrypt'
+
+export const fakeUser = (): Prisma.UserCreateInput => ({
+  username: faker.name.firstName() + faker.name.lastName(),
+  email: faker.internet.email(),
+  // using hashSync here so that this function doesn't become async
+  password: hashSync('secret', 12),
+  description: faker.lorem.paragraph(),
+})
+```
+
+We can now seed our database
+
+```bash
+yarn seed
+```
+
+### Client Side
+
+There's only one part where we need to setup the client side, `_app.tsx` to wrap our components in a `SessionProvider` to allow us to use `useSession` in retrieving the active user information
+
+```tsx
+// src/pages/_app.tsx
+...
+export default function App({ Component, pageProps }: AppPropsWithLayout) {
+  const [queryClient] = React.useState(() => new QueryClient());
+
+  const getLayout = Component.getLayout || getDefaultLayout;
+
+  return (
+    <>
+      <Head>
+        <title>Page title</title>
+        <meta
+          name="viewport"
+          content="minimum-scale=1, initial-scale=1, width=device-width"
+        />
+      </Head>
+
+      <SessionProvider>
+        <QueryClientProvider client={queryClient}>
+          <Hydrate state={pageProps.dehydratedState}>
+            <MantineProvider
+              withGlobalStyles
+              withNormalizeCSS
+              theme={{
+                colorScheme: "light",
+              }}
+            >
+              <ModalsProvider modals={modals}>
+                {getLayout(<Component {...pageProps} />)}
+              </ModalsProvider>
+            </MantineProvider>
+          </Hydrate>
+        </QueryClientProvider>
+      </SessionProvider>
+    </>
+  );
+}
+```
+
+and we are done!
+
+### Testing
+
+Let's test if everything is working okay. Open up our `pages/index.tsx`, and add some arbitrary buttons for testing purposes. Remember to update to use email from your own **database**
+
+```tsx
+import { signIn, useSession } from 'next-auth/react'
+
+export default function Home() {
+  const posts = useQuery({ queryFn: getAllPosts, queryKey: ['all-posts'] })
+  const session = useSession()
+  return (
+    <>
+      <Head>
+        <title>Create Next App</title>
+        <meta name="description" content="Generated by create next app" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="flex flex-col items-center space-y-4">
+        {/* Here's the test sign in function */}
+        <button
+          onClick={() =>
+            signIn('credentials', {
+              email: 'Ila25@hotmail.com',
+              password: 'secret',
+            })
+          }
+        >
+          Sign in
+        </button>
+        {/* Here's to check the current active session, remember to delete it later */}
+        <button onClick={() => console.log(session)}>Current session</button>
+        <StoryCarousel />
+        {posts.isSuccess && posts.data.posts.map((post, index) => <Post post={post} key={index} />)}
+      </div>
+    </>
+  )
+}
+```
+
+Clicking on Current Session should print status `"unauthenticated"`
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="WV8p4X1"
+  format="png"
+  alt="Checking the session"
+  width={600}
+  height={200}
+/>
+
+Let's click Sign In, and check Current Session again, you should be able to see **updated status** and the **active user object**.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="MY3Mw7R"
+  format="png"
+  alt="Session exists currently"
+  width={600}
+  height={400}
+/>
+
+## Route Protection
+
+Next, let's try to protect our pages with authentication. That is, we will **prevent unauthenticated users from browsing** certain pages.
+
+How do we do that? There are usually many ways, but my preferred way in Next.js is to set explicitly if the **PageComponent is public**, and create an `AuthGuard` which shows the LoginForm if unauthenticated.
+
+So let's first update the type declaration of `NextPageWithLayout` in `_app.tsx` to include an attribute `isPublic`
+
+```tsx
+export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+  getLayout?: (page: ReactElement) => ReactNode
+} & {
+  isPublic?: boolean
+}
+```
+
+Then, we will create an AuthGuard which checks the page's `isPublic`
+
+```tsx
+// src/components/auth/AuthGuard.tsx
+import { NextPageWithLayout } from '@/pages/_app'
+import { useSession } from 'next-auth/react'
+import getDefaultLayout from '../layouts/DefaultLayout'
+
+interface AuthGuardProps {
+  Component: NextPageWithLayout
+  pageProps: any
+}
+
+const AuthGuard = ({ Component, pageProps }: AuthGuardProps) => {
+  const session = useSession()
+  // Notice that I've moded the getLayout from _app.tsx to here
+  const getLayout = Component.getLayout || getDefaultLayout
+  const isAuthenticated = Component.isPublic || session.status == 'authenticated'
+
+  return isAuthenticated ? getLayout(<Component {...pageProps} />) : <>Login Form</>
+}
+
+export default AuthGuard
+```
+
+And using it in our `_app.tsx`
+
+```tsx
+// src/pages/_app.tsx
+...
+              <ModalsProvider modals={modals}>
+                <AuthGuard Component={Component} pageProps={pageProps} />
+              </ModalsProvider>
+...
+```
+
+Is it working? Well we can open incognito browser and check it out, and you should see the text "Login Form" showing!
+
+### Splash Screen
+
+So far everything is great, however, if you head back to the authenticated browser and reload the page, you'd notice a **short flash** of "Login Form" before it shows the main page.
+
+This is because NextAuth needs to **make a request** to backend to determine the current active user, which is the **third status** of session, `isLoading`. To make the flow smoother, we can show a simple splash screen like Instagram's while loading
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="mgo2e1G"
+  format="png"
+  alt="Instagram Splash Screen"
+  width={600}
+  height={400}
+/>
+
+Here's the [logo.svg](https://github.com/HohShenYien/insta-next/blob/part6-authentication/public/logo.svg) for you, remember to put it in the `/public` folder. I did some tailwind magic to get the gradient text at the bottom there,
+
+```tsx
+import Image from 'next/image'
+
+const SplashScreen = () => {
+  return (
+    <div className="relative flex h-screen w-screen flex-col items-center justify-center">
+      <Image src="/logo.svg" alt="InstaNext" height={120} width={120} />
+      <div className="absolute bottom-4 text-center">
+        <p className="text-sm font-semibold text-gray-600">from</p>
+        <p className="bg-gradient-to-br from-[#FF8121] via-[#FF4507] via-20% to-[#E341CC] to-70% bg-clip-text text-lg font-semibold text-transparent">
+          Shen Yien
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export default SplashScreen
+```
+
+And here's how it'll look
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="ynwztvd"
+  format="png"
+  alt="InstaNext splash screen"
+  width={600}
+  height={400}
+/>
+
+Let's put everything together in our `AuthGuard`
+
+```tsx
+const AuthGuard = ({ Component, pageProps }: AuthGuardProps) => {
+  const session = useSession()
+  const getLayout = Component.getLayout || getDefaultLayout
+  // The session might go loading again, so check both data and status
+  const isAuthenticated = session.status == 'authenticated' || session.data != null
+  const canBrowse = Component.isPublic || isAuthenticated
+
+  // This is so that splash screen is only show once
+  const [showSplash, setShowSplash] = useState(true)
+  useEffect(() => {
+    if (session.status != 'loading') {
+      setShowSplash(false)
+    }
+  }, [session, showSplash])
+
+  if (showSplash) {
+    return <SplashScreen />
+  }
+
+  return canBrowse ? getLayout(<Component {...pageProps} />) : <>Login Form</>
+}
+```
+
+## Login Form
+
+This is Instagram's Login Form, let's try to copy over
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="JYb7F6H"
+  format="png"
+  alt="Instagram Login Page"
+  width={700}
+  height={500}
+/>
+
+While Instagram built their own mobile phone with phone frames & changing images, I'll just use a simple screenshot I took of the phones and add in the form, download them [here](https://github.com/HohShenYien/insta-next/blob/part6-authentication/public/login-phone.png)
+
+```tsx
+// src/components/auth/LoginForm.tsx
+import { Button, Image, PasswordInput, TextInput } from '@mantine/core'
+import Link from 'next/link'
+
+const LoginForm = () => {
+  return (
+    <div className="pt-12">
+      <div className="mx-auto grid max-w-[800px] grid-cols-2">
+        <div className="flex items-center justify-center">
+          <Image alt="InstaNext Promo Picture" src="/login-phone.png" width={420} height="auto" />
+        </div>
+        <div className="flex items-center justify-center">
+          <div className="min-w-[340px]">
+            <form className="border-2 border-solid border-gray-200 px-10 py-12">
+              <Link href="/">
+                <Image src="/brand.svg" alt="InstaNext" width="200" className="mx-auto" />
+              </Link>
+              <div className="mt-10 space-y-1 ">
+                <TextInput placeholder="Email" />
+                <PasswordInput placeholder="Password" />
+              </div>
+              <Button fullWidth className="mt-2 rounded-md bg-blue-400 hover:bg-blue-500">
+                Log in
+              </Button>
+            </form>
+            <div className="mt-3 border-2 border-solid border-gray-200 py-4 text-center">
+              Don{"'"}t have an account?{' '}
+              <Link href="/auth/sign-up" className="font-semibold text-blue-400">
+                Sign up
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mt-12 text-center text-sm text-gray-400">
+        InstaNext - Instagram Clone by{' '}
+        <Link href="https://shenyien.cyou" target="_blank" className="text-blue-400">
+          Shen Yien
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+export default LoginForm
+```
+
+And plugging in the `LoginForm` into our `AuthGuard`
+
+```tsx
+...
+  return canBrowse ? getLayout(<Component {...pageProps} />) : <LoginForm />;
+...
+```
+
+And now, entering the page without being authenticated, it looks nice!
+
+<ImgurImage
+  size="full"
+  imgurId="Ns6Kfr3"
+  format="png"
+  alt="InstaNext Login Page"
+  width={800}
+  height={600}
+/>
+
+However, notice that the page doesn't do much now? Let's add some **form logics**, you can use Mantine's [useForm](https://mantine.dev/form/use-form/) for it.
+
+We will make the button type `submit`, and for the form's onSubmit, we let Mantine's `useForm` handle it, and pass the values to NextAUth's `signIn`
+
+```tsx
+import { Button, Image, PasswordInput, TextInput } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { signIn } from 'next-auth/react'
+import Link from 'next/link'
+
+const LoginForm = () => {
+  const form = useForm<{ email: string; password: string }>()
+  return (
+    <div className="pt-12">
+      <div className="mx-auto grid max-w-[800px] grid-cols-2">
+        <div className="flex items-center justify-center">
+          <Image alt="InstaNext Promo Picture" src="/login-phone.png" width={420} height="auto" />
+        </div>
+        <div className="flex items-center justify-center">
+          <div className="min-w-[340px]">
+            <form
+              className="border-2 border-solid border-gray-200 px-10 py-12"
+              onSubmit={form.onSubmit((values) => signIn('credentials', values))}
+            >
+              <Link href="/">
+                <Image src="/brand.svg" alt="InstaNext" width="200" className="mx-auto" />
+              </Link>
+              <div className="mt-10 space-y-1 ">
+                <TextInput placeholder="Email" {...form.getInputProps('email')} />
+                <PasswordInput placeholder="Password" {...form.getInputProps('password')} />
+              </div>
+              <Button
+                fullWidth
+                className="mt-2 rounded-md bg-blue-400 hover:bg-blue-500"
+                type="submit"
+              >
+                Log in
+              </Button>
+            </form>
+            <div className="mt-3 border-2 border-solid border-gray-200 py-4 text-center">
+              Don{"'"}t have an account?{' '}
+              <Link href="/auth/sign-up" className="font-semibold text-blue-400">
+                Sign up
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="mt-12 text-center text-sm text-gray-400">
+        InstaNext - Instagram Clone by{' '}
+        <Link href="https://shenyien.cyou" target="_blank" className="text-blue-400">
+          Shen Yien
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+export default LoginForm
+```
+
+You can test signing in now, it will work!
+
+## Updating Backend Logic
+
+Finally, we can do some minor updates to our logic for `/api/posts` and `/api/stories` so that only those that the users are following will show.
+
+### Retrieving Active User
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="9skjH2e"
+  format="png"
+  alt="Current user's session type"
+  width={500}
+  height={400}
+/>
+
+NextAuth provides a convenient [getServerSession](https://next-auth.js.org/configuration/nextjs#getserversession) to retrieve current active user. However, the session object does not contain the current user's id, which is a little annoying to work with. Let's update our `src/pages/api/auth[...nextauth].ts` to include it!
+
+```typescript
+// src/pages/api/auth[...nextauth].ts
+export const authOptions: AuthOptions = {
+...
+  callbacks: {
+    session: async ({ session, token }) => {
+      if (session?.user) {
+        // no idea why jwt token stores the user id in an attribute called sub
+        session.user.id = token.sub ?? "";
+      }
+      return session;
+    },
+  },
+}
+```
+
+At this point, the IDE is probably showing an error that id **does not exist** in `User` object, so to correct the type system, you can create a **type declaration file** at the root
+
+```typescript
+// next-auth.d.ts
+import 'next-auth'
+
+declare module 'next-auth' {
+  interface User {
+    id: string
+  }
+
+  interface Session {
+    user: User
+  }
+}
+```
+
+And it's fixed!
+
+### Posts
+
+For posts, we can simply update `findManyPosts.ts` to include the **user id** in our `where` parameter.
+
+_PS: I also rename it to_ `findFollowingPosts` _to better describe the function_
+
+```typescript
+// src/features/posts/findFollowingPosts.ts
+import attachImage from '../images/attach-image'
+import prisma from '@/utils/prisma'
+
+const findFollowingPosts = async (userId: string) => {
+  const posts = await prisma.post.findMany({
+    include: {
+      user: true,
+      _count: {
+        select: {
+          liked_bys: true,
+        },
+      },
+    },
+    orderBy: { created_at: 'desc' },
+    // the user must the follower of the posters
+    where: {
+      user: {
+        followers: {
+          some: {
+            follower_id: userId,
+          },
+        },
+      },
+    },
+  })
+
+  return await Promise.all(
+    posts.map(async (post) => {
+      const postsWithImages = await attachImage(post, 'post')
+      const postsWithAuthorWithImages = {
+        ...postsWithImages,
+        user: await attachImage(post.user, 'user'),
+      }
+      return postsWithAuthorWithImages
+    })
+  )
+}
+
+export default findFollowingPosts
+```
+
+Then, we can pass the user id from the API route
+
+```typescript
+// src/pages/api/posts/index.ts
+...
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<AllPostsData>
+) {
+  const currentSession = await getServerSession(req, res, authOptions);
+  const posts = await findFollowingPosts(currentSession?.user.id ?? "");
+  res.status(200).json({ posts });
+}
+```
+
+And we have filtered the posts successfully based on the follower logic
+
+### Stories
+
+The implementation of stories would be **almost equivalent** to the posts, so I'll leave it to you. You can refer to my codes on [GitHub](https://github.com/HohShenYien/insta-next/blob/part6-authentication/src/features/stories/findFollowingStories.ts).
+
+## Updating UI
+
+Finally, let's go back to our index page
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="eskGUnD"
+  format="png"
+  alt="Current user's posts"
+  width={700}
+  height={500}
+/>
+
+I just noticed that the `StoryCarousel` is a bit off, let's fix it.
+
+```tsx
+// src/components/carousel/StoryCarousel.tsx
+// 640px to make sure all items will be displayed nicely
+...
+    <Carousel
+      height={120}
+      maw={640}
+      classNames={{
+        control:
+          "p-0 border-0 text-gray-600 data-[inactive=true]:invisible data-[inactive=true]:cursor-default bg-white",
+        controls: "top-[20px]",
+        viewport: "rounded-sm w-[640px]",
+      }}
+      previousControlIcon={<BiChevronLeft size={24} />}
+      nextControlIcon={<BiChevronRight size={24} />}
+      slideSize={70}
+      slidesToScroll={4}
+      draggable={false}
+      align={"start"}
+      w="640"
+      slideGap={"sm"}
+      // this is to prevent over-scrolling, which is default behaviour
+      containScroll="trimSnaps"
+    >
+...
+```
+
+Much better.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="a6UVb2D"
+  format="png"
+  alt="Fixed Story Carousel"
+  width={600}
+  height={400}
+/>
+
+### Logout
+
+We will tackle the easier one, currently, we have a Logout button in our `SideBar.tsx` which does nothing. We can use NextAuth's `signOut` for that purpose
+
+```tsx
+// src/components/sidebar/SideBar.tsx
+...
+        <SideBarButton
+          text="Logout"
+          Icon={FiLogOut}
+          onClick={() => signOut()}
+        />
+...
+```
+
+### User Profile
+
+Likewise, let's add in the current user's id to the user profile button. I decided to move out profile button as it is more
+
+```tsx
+import { AiOutlineHome, AiFillHome, AiOutlineSearch } from 'react-icons/ai'
+import { ImSearch } from 'react-icons/im'
+import { BsPlusSquare, BsFillPlusSquareFill } from 'react-icons/bs'
+import { RiUser3Line, RiUser3Fill } from 'react-icons/ri'
+import { FiLogOut } from 'react-icons/fi'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
+import Image from 'next/image'
+import SideBarButton from './SideBarButton'
+import { signOut, useSession } from 'next-auth/react'
+
+const links = [
+  { name: 'Home', route: '/', IconLine: AiOutlineHome, IconFilled: AiFillHome },
+  {
+    name: 'Search',
+    route: '/search',
+    IconLine: AiOutlineSearch,
+    IconFilled: ImSearch,
+  },
+  {
+    name: 'Create',
+    route: '/new',
+    IconLine: BsPlusSquare,
+    IconFilled: BsFillPlusSquareFill,
+  },
+  // we will update the route to use user name in next part
+  {
+    name: 'Profile',
+    route: '/profile',
+    IconLine: RiUser3Line,
+    IconFilled: RiUser3Fill,
+  },
+]
+
+const SideBar = () => {
+  const router = useRouter()
+  const currentPath = router.asPath
+  const session = useSession()
+
+  return (
+    <div className="fixed left-0 top-0 h-full w-[244px] border-r-[1px] border-solid border-gray-300 px-4 py-6">
+      <div className="flex h-full flex-col justify-between">
+        <div className="flex flex-col items-center">
+          <Link href="/">
+            <Image src="/brand.svg" alt="InstaNext" height="120" width="140" />
+          </Link>
+          <div className="mt-12 w-full space-y-2">
+            {links.map((link, index) => {
+              const isActive = link.route == currentPath
+              return (
+                <SideBarButton
+                  key={index}
+                  Icon={isActive ? link.IconFilled : link.IconLine}
+                  text={link.name}
+                  href={link.route}
+                  isActive={isActive}
+                />
+              )
+            })}
+            {/* This is the profile button */}
+            <SideBarButton
+              Icon={currentPath == `/users/${session.data?.user.name}` ? RiUser3Fill : RiUser3Line}
+              text={'Profile'}
+              href={`/users/${session.data?.user.name}`}
+              isActive={currentPath == `/users/${session.data?.user.name}`}
+            />
+          </div>
+        </div>
+        <SideBarButton text="Logout" Icon={FiLogOut} onClick={() => signOut()} />
+      </div>
+    </div>
+  )
+}
+
+export default SideBar
+```
+
+### Profile Picture
+
+Lastly, Instagram will show the active user's **username** and **profile picture** on the top right, we will add that too
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="tKiSyX4"
+  format="png"
+  alt="Instagram's current user's info"
+  width={500}
+  height={300}
+/>
+
+To do that, you can use a flex for the `index.tsx` page and add in the avatar just like that, here's the new `index.tsx`
+
+```tsx
+// src/pages/index.tsx
+import Head from 'next/head'
+import { useQuery } from '@tanstack/react-query'
+import { getAllPosts } from '@/api/posts'
+import Post from '@/components/posts/Post'
+import StoryCarousel from '@/components/carousel/StoryCarousel'
+import { signIn, useSession } from 'next-auth/react'
+import { Avatar, Text } from '@mantine/core'
+import Link from 'next/link'
+
+export default function Home() {
+  const posts = useQuery({ queryFn: getAllPosts, queryKey: ['all-posts'] })
+  const session = useSession()
+  return (
+    <>
+      <Head>
+        <title>Create Next App</title>
+        <meta name="description" content="Generated by create next app" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <div className="flex flex-row items-start justify-center space-x-12">
+        <div className="flex flex-col items-center space-y-4">
+          <StoryCarousel />
+          {posts.isSuccess &&
+            posts.data.posts.map((post, index) => <Post post={post} key={index} />)}
+        </div>
+        <div className="w-[240px]">
+          <Link href={`/users/${session?.data?.user.name}`}>
+            <div className="flex items-center space-x-2">
+              <Avatar
+                src={session?.data?.user.image ?? ''}
+                alt={session?.data?.user.name ?? ''}
+                size="64px"
+                classNames={{ root: 'rounded-full' }}
+              />
+              <Text className="font-semibold">{session?.data?.user.name}</Text>
+            </div>
+          </Link>
+        </div>
+      </div>
+    </>
+  )
+}
+```
+
+And here's the final output
+
+<ImgurImage
+  size="full"
+  imgurId="QabY9c3"
+  format="png"
+  alt="InstaNext's active user info"
+  width={800}
+  height={500}
+/>
+
+## Summary
+
+Got a little too lengthy here, but that's basically the end.
+
+In this part, we have built an authentication system using **NextAuth**, and updated both frontend and backend so that they are aware of the current user. There's also a new sign-in page for the user to login.
+
+In the next part, we will look into making POST requests in Next.js!
+
+As usual, here's the link to the completed codes for this part on [GitHub](https://github.com/HohShenYien/insta-next/tree/part6-authentication).

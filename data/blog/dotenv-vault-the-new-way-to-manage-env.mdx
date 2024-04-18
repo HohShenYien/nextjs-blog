@@ -8,6 +8,8 @@ summary: "Are you still sharing your .env file around using Slack? It's probably
 image: S8fqnN7
 ---
 
+<TOCInline toc={props.toc} />
+
 Sharing `.env` values **manually** through **copy-pasting** seems to still be the most common approach in the software industry. However, I thought we've always been boasting about our technological prowess, but why are we stuck with this old-school tradition?
 
 In this article, I will be sharing a somewhat _opinionated_ tool, **dotenv-vault** that modernizes the way we handle `.env` files!
@@ -358,7 +360,7 @@ Let's use the variables from the Next.js project. Open up the page, `app/page.ts
 
 _Yes, this project uses the app directory, you can read more about it_ [_here_](https://blogs.shenyien.cyou/the-nextjs-13-app-directory-and-server-components)_._
 
-```typescript
+```tsx
 // src/app/page.tsx
 ...
 export default function Home() {

@@ -1,0 +1,549 @@
+---
+title: 'Insta-Next: Exploring APIs with React Queries'
+date: '2023-04-04'
+lastmod: '2023-04-04'
+tags: ['nextjs', 'react', 'prisma', 'react-query', 'api']
+draft: false
+series: 'insta-next'
+summary: "Let's start building the backend APIs using Next.js and use React Queries to fetch them!"
+image: 09HV1t2
+---
+
+<TOCInline toc={props.toc} />
+
+In this part, we are going to first look into **writing our first sets of APIs** to fetch user details, posts and stories. Then, we will fetch them from the frontend using **React Queries**.
+
+If you decided to skip to this part, no worry, I got you there, you can download the codes from the last part [here](https://github.com/HohShenYien/insta-next/tree/part2-database-prisma). But it's best for you to check out the last part here to setup your Prisma and database.
+
+_Sneak Peek:_
+
+<ImgurImage
+  size="full"
+  imgurId="ywYTJWn"
+  format="png"
+  alt="Sneak Peek of the completed InstaNext"
+  width={800}
+  height={700}
+/>
+
+## React Query
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="zMKTJTu"
+  format="png"
+  alt="Axios"
+  width={300}
+  height={200}
+/>
+
+How do we usually make queries to API endpoints? [Axios](https://axios-http.com/docs/intro)
+
+Nothing's wrong with that, but we have React Query now! It enhances Axios like how Next.js made React better.
+
+### Why
+
+I guess one big reason for using React Query is that we **do not need to manage the states** using `useState` anymore, and that means clean codes!
+
+```typescript
+// no more
+const SadAxiosComponent = () => {
+  const [data, setData] = useState<SomeData[]>([]);
+  useEffect(() => {
+    axios.get(...).then((res) => {
+      setData(res.data);
+    });
+  })
+}
+```
+
+```tsx
+// Much better
+const HappyComponent = () => {
+  const query = useQuery({ queryKey: ['todos'], queryFn: getTodos })
+  ;<>{query.data}</>
+}
+```
+
+If that alone doesn't convince you, React queries will automatically refetch the data and cache them so that you don't need to pass them everywhere!
+
+### Usage
+
+It's pretty easy to get started, we just define an Axios function _(or some other asynchronous functions that returns a promise)_
+
+```typescript
+const getData = () => {
+  return axios.get(...);
+}
+```
+
+And pass the function as `queryFN`
+
+```tsx
+// Don't mind me for repeating the codes here
+const HappyComponent = () => {
+  const query = useQuery({ queryKey: ['todos'], queryFn: getData })
+  ;<>{query.data}</>
+}
+```
+
+As simple as that! Of course, there are many other keys that we might explore later.
+
+## Building API Endpoints
+
+If you look carefully, you can find an `api` folder under `/src/pages`, and that's where we define the APIs.
+
+By default, there's a `hello.ts` inside the `api` folder, so this means that it's an endpoint for `localhost:3000/api/hello`, let's open it up
+
+```typescript
+// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+type Data = {
+  name: string
+}
+
+export default function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  res.status(200).json({ name: 'John Doe' })
+}
+```
+
+It defines a simple `handler` function that returns a JSON of name John Doe. It's actually pretty simple, let's try it out.
+
+First, ramp up your development server
+
+```bash
+yarn dev
+```
+
+Then, head to the endpoint, `localhost:3000/api/hello` from either a browser, or if you have an API client like [Postman](https://www.postman.com/), you can use it too
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="cWgjWj0"
+  format="png"
+  alt="Sneak Peek of the completed InstaNext"
+  width={400}
+  height={200}
+/>
+
+And.... voila! Exactly what we are expecting. Let's build a few more API endpoints to interact with our database.
+
+### Prisma Client
+
+Before that, let's create a Prisma client that'll be used in our backend, I added a `prisma.ts` under `src/utils`
+
+```typescript
+// src/utils/prisma.ts
+import { PrismaClient } from '@prisma/client'
+
+let prisma: PrismaClient
+// Fixing the type error
+declare global {
+  var prisma: PrismaClient
+}
+
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient()
+} else {
+  if (!global.prisma) {
+    global.prisma = new PrismaClient()
+  }
+  prisma = global.prisma
+}
+
+export default prisma
+```
+
+This way, we only have a **single Prisma client** instance that we can import everywhere we need it. If there are multiple clients, some clients might not be able to reach the database due to the connection limit being exceeded.
+
+### Listing All Posts
+
+Now that we have set up everything, let's create our first route, `get /api/posts` to read all posts.
+
+Since there will be multiple endpoints under `posts`(e.g., `/api/posts/1`), we will make it a folder. So let's create a folder named `posts` in `api`, and our first endpoint will live in `index.ts`, I copied over the codes from `hello.ts` to here.
+
+```typescript
+import { Post } from '@prisma/client'
+import type { NextApiRequest, NextApiResponse } from 'next'
+import prisma from '@/utils/prisma'
+
+type Data = {
+  posts: Post[]
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  const posts = await prisma.post.findMany()
+  res.status(200).json({ posts })
+}
+```
+
+Now, it's time to update the handler function to read all posts from Prisma, and return them.
+
+```typescript
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  const posts = await prisma.post.findMany()
+  res.status(200).json({ posts })
+}
+```
+
+As expected, an error on the response type pops up
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="aFas9dA"
+  format="png"
+  alt="Type error"
+  width={600}
+  height={300}
+/>
+Let's quickly update the `Data` to return an object of Post\[\]
+
+```typescript
+type Data = {
+  posts: Post[]
+}
+```
+
+The error is gone, life is good, and our first endpoint is done!
+
+Let's head back to the browser, and navigate to `localhost:3000/api/posts/`
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="sMGB5iG"
+  format="png"
+  alt="JSON response"
+  width={500}
+  height={600}
+/>
+Pretty simple, isn't it?
+
+#### Attaching Images to Models
+
+Remember in the last part I mentioned that Prisma **doesn't support polymorphism** and I had to build it myself? So let's do it. Since this is an image feature, we will add a folder called `images` under `feature` folder.
+
+Before that, I'll use a TypeScript trick to wrap the object with `Image`, to do this, I'll create this wrapper type, which will **augment** the type `T` provided with images.
+
+```typescript
+// src/features/images/attach-image.ts
+export type AttachImages<T> = T & {
+  images: Image[] // for posts & stories
+}
+/**
+AttachImages<Post> = Post & {images: Image[]};
+*/
+```
+
+But wait, users and stories only have a single image, and they have different keys. Let's fix it by **providing a second parameter** to the type
+
+```typescript
+// src/features/images/attach-image.ts
+export type AttachImage<T, Type extends string> = Type extends 'user'
+  ? T & { profile_pic?: Image } // for User's profile picture
+  : Type extends 'story'
+    ? T & { image: Image } // for stories
+    : T & {
+        images: Image[] // for posts
+      }
+```
+
+A bit uglier, but that's the best I can do with my TypeScript knowledge. If you know better, do comment down and let me know!
+
+Likewise, I'll create an `attachImage` function which finds all the images attached to the specific type
+
+```typescript
+// src/features/images/attach-image.ts
+export default async function attachImage<T extends { id: number }, Type extends string>(
+  object: T,
+  type: Type
+): Promise<AttachImage<T, Type>> {
+  const images = await prisma.image.findMany({
+    where: {
+      associated_id: object.id,
+      type,
+    },
+  })
+  switch (type) {
+    case 'user':
+      return {
+        ...object,
+        profile_pic: images?.[0],
+      } as AttachImage<T, Type>
+    case 'story':
+      return {
+        ...object,
+        image: images?.[0],
+      } as AttachImage<T, Type>
+  }
+  return {
+    ...object,
+    images,
+  } as AttachImage<T, Type>
+}
+```
+
+I had to add the line `as AttachImage<T, Type>` there, otherwise the IDE will scream for errors.
+
+So there we go, a little TypeScript gimmicks here and there, and we got a perfect fully typed working function. Let's go back to our `api/posts/index.ts` and use this function to attach the image and update the response type there!
+
+_Disclaimer: This doesn't scale well when there are a lot of posts because I am making a query for every post, using SQL will be a better solution_
+
+```typescript
+// src/pages/api/posts/index.ts
+export type Data = {
+  posts: AttachImage<Post, 'post'>[]
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse<Data>) {
+  const posts = await prisma.post.findMany()
+
+  // attachImage is an async function, so an extra step is needed
+  // from mapping
+  const postsWithImages = await Promise.all(
+    posts.map(async (post) => await attachImage(post, 'post'))
+  )
+  res.status(200).json({ posts: postsWithImages })
+}
+```
+
+So far so good, let's make it better by extracting the logic into a separate function _(We will practice clean codes)_
+
+```typescript
+// src/features/posts/findManyPosts.ts
+import attachImage from "../images/attach-image";
+import prisma from "@/utils/prisma";
+
+const findManyPosts = async () => {
+  const posts = await prisma.post.findMany();
+
+  return await Promise.all(
+    posts.map(async (post) => await attachImage(post, "post"))
+  );
+};
+
+export default findManyPosts;
+
+// src/pages/api/posts/index.ts
+...
+// I renamed the Data here to AllPostsData, will be needed later
+export type AllPostsData = {
+  posts: AttachImage<Post, "post">[];
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<AllPostsData>
+) {
+  const posts = await findManyPosts();
+  res.status(200).json({ posts });
+}
+```
+
+And... done! Let's head back to the browser and check `localhost:3000/api/posts` again
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="sEpMMY1"
+  format="png"
+  alt="JSON response with nested images field"
+  width={500}
+  height={600}
+/>
+There we go, each post is attached with its respective images.
+
+### Challenge Time
+
+Given the implementations for posts there, can you implement the same functions for stories and users?
+
+As usual, you can find the completed solution on [GitHub](https://github.com/HohShenYien/insta-next/tree/part3-api-usequery/src/features)
+
+<ImgurImage
+  size="full"
+  imgurId="KcJnKk8"
+  format="png"
+  alt="JSON Users API response"
+  width={700}
+  height={400}
+  caption="localhost:3000/api/users"
+/>
+
+<ImgurImage
+  size="full"
+  imgurId="abtUtxS"
+  format="png"
+  alt="JSON stores API response"
+  width={400}
+  height={600}
+  caption="localhost:3000/api/stories"
+/>
+
+## Querying from Frontend
+
+Next, let's query these endpoints from frontend
+
+### Setting Up React Query
+
+Let's install React Query
+
+```bash
+yarn add @tanstack/react-query
+```
+
+Following the [documentation](https://tanstack.com/query/v4/docs/react/quick-start), we need to set up the `_app.tsx` to wrap the application in a provider too
+
+```tsx
+// src/pages/_app.tsx
+import '@/styles/globals.css'
+import { AppProps } from 'next/app'
+import Head from 'next/head'
+import { MantineProvider } from '@mantine/core'
+import React from 'react'
+import { Hydrate, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+export default function App(props: AppProps) {
+  const { Component, pageProps } = props
+  const [queryClient] = React.useState(() => new QueryClient())
+
+  return (
+    <>
+      <Head>
+        <title>Page title</title>
+        <meta name="viewport" content="minimum-scale=1, initial-scale=1, width=device-width" />
+      </Head>
+
+      <QueryClientProvider client={queryClient}>
+        <Hydrate state={pageProps.dehydratedState}>
+          <MantineProvider
+            withGlobalStyles
+            withNormalizeCSS
+            theme={{
+              colorScheme: 'light',
+            }}
+          >
+            <Component {...pageProps} />
+          </MantineProvider>
+        </Hydrate>
+      </QueryClientProvider>
+    </>
+  )
+}
+```
+
+And we're set to go!
+
+### Post Component
+
+Here's a simple Post component that displays a post, and the images in a 3-column grid (we will make it nicer in upcoming parts)
+
+```tsx
+// src/components/posts/Post.tsx
+import { AttachImage } from '@/features/images/attach-image'
+import { Image } from '@mantine/core'
+import { Post } from '@prisma/client'
+
+interface PostProps {
+  post: AttachImage<Post, 'post'>
+}
+
+const Post = ({ post: { caption, images, id } }: PostProps) => {
+  return (
+    <div>
+      <p>{caption}</p>
+      <div className="grid grid-cols-3">
+        {images.map((image, index) => {
+          return (
+            // Some Mantine's quirk to set inner things to make image full
+            <Image
+              src={image.url}
+              alt={caption}
+              width="100%"
+              key={index}
+              className="aspect-square"
+              height="100%"
+              classNames={{ imageWrapper: 'h-full', figure: 'h-full' }}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default Post
+```
+
+### Querying
+
+As mentioned earlier, React Query does require Axios under the hood, and it's often a good practice to write all Axios queries in an `api` folder, so I created an `api` folder under `src`. But before writing the queries, we gotta install it first
+
+```bash
+yarn add axios
+```
+
+Let's start writing our first query to retrieve posts
+
+```typescript
+// src/api/posts.ts
+import { AllPostsData } from '@/pages/api/posts'
+import axios from 'axios'
+
+// remember the AllPostsData exported earlier? We will use it here
+export const getAllPosts = async (): Promise<AllPostsData> => {
+  const data = await axios.get('/api/posts')
+  return data.data
+}
+```
+
+Then, we will display the posts in our `index.tsx` page, using React Query
+
+```tsx
+// src/pages/index.tsx
+import Head from "next/head";
+import { useQuery } from "@tanstack/react-query";
+import { getAllPosts } from "@/api/posts";
+import Post from "@/components/posts/Post";
+
+export default function Home() {
+  // This is the important part
+  const posts = useQuery({ queryFn: getAllPosts, queryKey: ["all-posts"] });
+  return (
+    <>
+      <Head>
+        <title>Create Next App</title>
+        <meta name="description" content="Generated by create next app" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </Head>
+      <main>
+        <div>
+          <!-- We will add skeletons later -->
+          {posts.isSuccess &&
+            posts.data.posts.map((post, index) => (
+              <Post post={post} key={index} />
+            ))}
+        </div>
+      </main>
+    </>
+  );
+}
+```
+
+And that's it, we have completed our first fullstack page! It will query the data from backend, and display on the frontend. When you open up your `localhost:3000`, it should look like this, only with different images
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="bzhQOv8"
+  format="png"
+  alt="Page with image posts"
+  width={600}
+  height={400}
+/>
+
+## Summary
+
+And that's it! In this part, we have created 3 Get APIs to return **users**, **posts** and **stories**. We also used React Query's `useQuery` to fetch data from these APIs and display them accordingly.
+
+I know it looks quite awful as of now, but bear with me, we will improve the UI in the next part!
+
+Complete codes for this part can be found on [GitHub](https://github.com/HohShenYien/insta-next/tree/part3-api-usequery)

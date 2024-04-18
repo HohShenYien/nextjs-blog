@@ -1,0 +1,173 @@
+---
+title: 'Visibility and Stability: A Hidden Relationship'
+date: '2023-03-15'
+lastmod: '2023-03-15'
+tags: ['object-oriented', 'javascript', 'dependency', 'clean code']
+draft: false
+summary: 'Have you ever thought that these keywords can tell people how stable your codes are?'
+image: 0CD9dyM
+---
+
+<TOCInline toc={props.toc} />
+
+Yeah yeah, you know, I know, private fields and methods for encapsulations, but is that it? You can actually view it from another side, where higher visibility means higher stability. Wonders how?
+
+Note: This is an opinionated view, and I believe it's not mainstream.
+
+## Visibility
+
+**Public**, **private**, and **protected**, common terms we see in Object Oriented Programming world.
+
+```java
+public class Book {
+  public Author getAuthor() {
+    // This method is a public method, accessible by anyone who
+    // has an object of Book
+  }
+  private String readIdFromSerialNumber() {
+    // This method is private, can only be called by other methods in
+    // this class
+  }
+}
+```
+
+Outside of Object Oriented Programming world, sometimes we use underscores to indicate the visibility:
+
+```typescript
+class Book {
+  getAuthor(): Author {
+    // All methods are publicly available in JavaScript
+  }
+  __readIdFromSerialNumber(): string {
+    // This is still technically a public method
+    // But anyone reading the codes should be aware that this method
+    // is meant to be private, so don't mess with it outside
+  }
+}
+```
+
+### Encapsulation
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="iSiLx6m"
+  format="jpeg"
+  alt="Encapsulation"
+  width={250}
+  height={250}
+/>
+
+Can't avoid to touch a little on encapsulation when talking about visibility, can we?
+
+The purpose of hiding these methods or variables is to hide the inner complex implementations. For example, you wouldn't want to know how the Book retrieves its ID from the Serial Number when you're just looking for its ID.
+
+## Stability
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="iHp3syH"
+  format="png"
+  alt="Stability"
+  width={250}
+  height={250}
+/>
+
+Now, stability might be less known, but it is an equally important concept.
+
+When we are programming, we know that certain parts of codes are more ***likely to change*** than others. (*Maybe not exactly know, but at least the gut feelings, you know*)
+
+Consider the following scenario:
+
+You're asked to build a food delivery system, and here you wrote a class for the Delivery class
+
+```typescript
+class Delivery {
+  destination: Address;
+  restaurant: Restaurant;
+  serviceProvider: ServiceProvider;
+  
+  deliveryTimeInSeconds(): number {
+  }
+  deliveryFeeInDollars(): Dollar {
+  }
+}
+```
+
+Depending on the current scope, requirements and your knowledge, different parts might be more likely to change than others.
+
+Say, your company currently depends on their bikers for delivery, but in the future, your company plans to cooperate with some local service providers like Grab for delivery. Obviously, `serviceProvider` and consequently, `deliveryTime` and `deliveryFee` are most likely to change, so these codes are less stable.
+
+## The Hidden Relationship
+
+Let's move to the interesting part
+
+> The *private* keyword denotes the least stable kind of method and provides the most restricted visibility.
+> 
+> — Sandi Metz, Practical Object-Oriented Design
+
+Going back to our previous example, does this mean that we need to make `deliveryTime` and `deliveryFee` private?
+
+Nope, otherwise we can't access those methods outside the class.
+
+### Isolate Instabilities
+
+What we ought to do is, make sure these methods are **stable**. But wait, we don't have additional information, then how can we make it more stable?
+
+We isolate the unstable part to a separate function and let the public method be stable on its own.
+
+```typescript
+...
+  deliveryTimeInSeconds(): number {
+    return __calculateDeliveryTimeInSeconds();
+  }
+  __calculateDeliveryTimeInSeconds(): number {
+    // unstable method
+  }
+}
+```
+
+Seems kinda redundant, but it's actually a mesage; **a message to future developers (including yourself) to not alter the public method's interface**, instead, alter the private method, and adapt the public method to return the same.
+
+Maybe, sometime in the future, the system wants to get delivery time in terms of **Datetime**, then they can edit the unstable method to return a Datetime, and compute the seconds in the public method:
+
+```typescript
+...
+  deliveryTimeInSeconds(): number {
+    // old method
+    return moment().diff(moment(__deliveryTime()));
+  }
+  deliveryTimeInDatetime(): Datetime {
+    // new method
+    return __deliveryTime();
+  }
+  __deliveryTime(): Datetime {
+    // unstable method
+  }
+}
+```
+
+The old method will be kept while transitioning to the new method, at least nothing breaks.
+
+### Depends on Stable Methods
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="tRSFxH8"
+  format="png"
+  alt="Dependency in xkcd"
+  width={250}
+  height={400}
+  href="https://xkcd.com/2347/"
+/>
+
+I'm not sure if you ever had this experience, you change **one line of codes** to get what you desire, but you need to then edit 10 other places that depend on this method.
+
+What a nightmare, so here it is again, we make sure the public methods don't change, but make changes to private methods.
+
+This way, the change will only spread **within the class**, and you just need to make sure the public methods within the class respond accordingly.
+
+Then, external classes will not be impacted, if at all. Thus, I can say that the external classes have depended on stable methods, making them stable.
+
+## Last Words
+
+I had the urge to write this out as I came across it in Sandi Metz's [Practical Object-Oriented Design](https://www.poodr.com/), but yeah, I'm aware that this concept isn't as common (if it exists in other places at all). Nevertheless, it's a good concept in my opinion and a really interesting one!

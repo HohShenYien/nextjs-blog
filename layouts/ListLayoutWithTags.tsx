@@ -124,7 +124,7 @@ export default function ListLayoutWithTags({
                           height={190}
                           width={360}
                           format={'jpeg'}
-                          size="medium thumbnail"
+                          size="huge thumbnail"
                           className="aspect-[1.91] w-full lg:my-3 lg:w-[240px]"
                         />
                       </Link>

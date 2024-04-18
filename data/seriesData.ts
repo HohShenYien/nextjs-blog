@@ -1,29 +1,38 @@
 interface Series {
   title: string
   description: string
-  href?: string
-  imgSrc: string
+  imgurId: string
   id: string
+  inverted?: boolean // true means latest first
 }
 
 const seriesData: Series[] = [
   {
-    id: '1',
-    title: 'A Search Engine',
-    description: `What if you could look up any information in the world? Webpages, images, videos
-    and more. Google has many features to help you find exactly what you're looking
-    for.`,
-    imgSrc: '/static/images/google.png',
-    href: 'https://www.google.com',
+    id: 'insta-next',
+    title: 'Fullstack Instagram Clone with Next.js',
+    description: `This is a step-by-step series on building a simple Instagram Clone using Next.js. You will get to see Tailwind, Mantine, NextAuth and Prisma in action to build this fullstack Instagram clone.`,
+    imgurId: '2kNXqd2',
   },
   {
-    id: '2',
-    title: 'The Time Machine',
-    description: `Imagine being able to travel back in time or to the future. Simple turn the knob
-    to the desired date and press "Go". No more worrying about lost keys or
-    forgotten headphones with this simple yet affordable solution.`,
-    imgSrc: '/static/images/time-machine.jpg',
-    href: '/blog/the-time-machine',
+    id: 'memory',
+    title: 'Revisiting Memories',
+    description: `A memory vault where I reminisce my past. Here you can peek into my life, the events that happened and the people that I met along my way.`,
+    imgurId: 'lqsTNVB',
+    inverted: true,
+  },
+  {
+    id: 'life',
+    title: 'Life Beyond Codes',
+    description: `Wonders what a programmer does beside coding? Here's it.`,
+    imgurId: 'E0VqlBG',
+    inverted: true,
+  },
+  {
+    id: 'leetcode',
+    title: 'Leetcode with Python',
+    description: `In this series, I will be discussing about various Leetcode problems and the ideas or intuitions behind the solutions. Python will be implemented to show how the ideas are transformed to codes. `,
+    imgurId: '4xOrTC6',
+    inverted: true,
   },
 ]
 
