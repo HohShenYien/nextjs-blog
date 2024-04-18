@@ -11,7 +11,7 @@ import siteMetadata from '@/data/siteMetadata'
 import ScrollTopAndComment from '@/components/ScrollTopAndComment'
 import ImgurImage from '@/components/ImgurImage'
 
-const editUrl = (path) => `${siteMetadata.siteRepo}/blob/main/data/${path}`
+const editUrl = (path) => `${siteMetadata.siteRepo}/blob/main/data/blog/${path}`
 const discussUrl = (path) =>
   `https://mobile.twitter.com/search?q=${encodeURIComponent(`${siteMetadata.siteUrl}/${path}`)}`
 
