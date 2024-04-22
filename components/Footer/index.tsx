@@ -8,13 +8,13 @@ import { clsx } from 'clsx'
 export default function Footer() {
   return (
     <footer className="mt-16">
-      <div className="relative w-screen overflow-x-hidden">
+      <div className="relative w-screen max-w-full overflow-x-hidden">
         <Image
           src="/static/footer/footer_bg.png"
           alt="Footer Background Image"
           width={1254}
           height={264}
-          className="w-screen"
+          className="w-full"
         />
         <Image
           src="/static/footer/2.gif"

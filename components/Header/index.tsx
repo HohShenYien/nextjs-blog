@@ -15,22 +15,20 @@ const Header = () => {
   return (
     <header className={clsx('flex items-center justify-between', className)} style={style}>
       <div className="mx-auto flex max-w-3xl flex-1 items-center justify-between px-4 sm:px-6 lg:max-w-5xl xl:px-0">
-        <div>
-          <Link href="/" aria-label={siteMetadata.headerTitle}>
-            <div className="flex items-center justify-between">
-              <div className="mr-3">
-                <Logo />
-              </div>
-              {typeof siteMetadata.headerTitle === 'string' ? (
-                <div className="hidden h-6 text-2xl font-semibold sm:block">
-                  {siteMetadata.headerTitle}
-                </div>
-              ) : (
-                siteMetadata.headerTitle
-              )}
+        <Link href="/" aria-label={siteMetadata.headerTitle}>
+          <div className="flex items-center justify-between">
+            <div className="mr-3">
+              <Logo className="h-12 w-12" />
             </div>
-          </Link>
-        </div>
+            {typeof siteMetadata.headerTitle === 'string' ? (
+              <div className="hidden h-6 text-2xl font-semibold sm:block">
+                {siteMetadata.headerTitle}
+              </div>
+            ) : (
+              siteMetadata.headerTitle
+            )}
+          </div>
+        </Link>
         <div className="flex items-center space-x-4 leading-5 sm:space-x-6">
           {headerNavLinks
             .filter((link) => link.href !== '/')

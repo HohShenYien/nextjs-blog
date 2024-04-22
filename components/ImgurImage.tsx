@@ -68,7 +68,7 @@ const ImgurImage = ({
 
   let image = (
     <>
-      <Image {...props} alt={alt} src={imgSrc} />
+      <Image {...props} alt={alt} unoptimized={format === 'gif'} src={imgSrc} />
     </>
   )
 
