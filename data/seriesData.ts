@@ -28,6 +28,12 @@ const seriesData: Series[] = [
     inverted: true,
   },
   {
+    id: 'experience',
+    title: "A Programmer's Tales",
+    description: `Here are some stories about my journey through the career of software engineering as a programmer. `,
+    imgurId: 'QstUidP',
+  },
+  {
     id: 'leetcode',
     title: 'Leetcode with Python',
     description: `In this series, I will be discussing about various Leetcode problems and the ideas or intuitions behind the solutions. Python will be implemented to show how the ideas are transformed to codes. `,

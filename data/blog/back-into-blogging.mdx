@@ -1,0 +1,196 @@
+---
+title: Back into Blogging
+date: '2024-04-25'
+lastmod: '2024-04-25'
+tags: ['life', 'throwback']
+draft: false
+summary: A quarter since 2024, and why I haven't been writing since, as well as some personal life updates
+image: b6QiIy0
+series: memory
+---
+
+<TOCInline toc={props.toc} />
+Whew, 2024 has been a quick year, it's already towards the end of April without realizing it!
+
+Well, unfortunately, I did not manage to put much into blogging during this period as many other things took priority over it. Despite taking some time, I finally adapted enough and began to find time to work on this blog again!
+
+## The New Blog
+
+### My Issues
+
+I think towards the end of last year, I started to feel a **lack of flexibility** when it comes to customizations with Hashnode. I did try to customize my blog more though, such as with different colors, text styles, and a nice little footer that I stole from [Halfrost](https://halfrost.com/).
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="JjZPnZ9"
+  format="png"
+  alt="My nice animated footer"
+  width={700}
+  height={300}
+/>
+
+However, sometimes [things break](https://shenyien.hashnode.dev/series/insta-next), and sometimes the UI gets updated, making my customizations disappear. While I do understand that this is the limitation when it comes to using third-party platforms, but as a **typical programme**r, I guess I do prefer to build things my own way.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="rnllPXQ"
+  format="png"
+  alt="Broken footer that came out of nowhere"
+  width={600}
+  height={300}
+/>
+
+Not to mention, I'm not really a big fan of doing customizations by **searching the class names and targeting them via CSS**.
+
+### Building New Blog
+
+So Hashnode did roll out [Headless Hasnode](https://hashnode.com/blog/the-ideal-headless-cms-for-blogs) in November 2023, but during that period, I was busy with my [hackathon](https://www.linkedin.com/posts/shen-yien_dobetter-eytp-gamification-activity-7140883107150311425-5Y9c), so it was delayed for a while.
+
+Regardless, I began building my new [blog website](https://blogs.shenyien.cyou) early this year. Planned to use Astro initially, but faced many hiccups that forced me to go back to **Next.js** eventually.
+
+I also wanted to start from scratch initially, but the amount of work was kinda overwhelming for me at that moment as I had several other things ongoing at the moment.
+
+I ended up using the [Tailwind Nextjs Starter Blog](https://github.com/timlrx/tailwind-nextjs-starter-blog) template, and I gotta say the template is **simply awesome**.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="6WobVQM"
+  format="png"
+  alt="Tailwind Nextjs Starter Blog"
+  width={600}
+  height={400}
+/>
+
+There wasn't too much in its default theming, making it super easy to customize, and the structure was laid out clearly for me to work on, so I hopped into it, and here it is, after a few months.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="d2xG4Zt"
+  format="png"
+  alt="My new blog"
+  width={800}
+  height={400}
+  href="https://blogs.shenyien.cyou"
+/>
+
+Not the most perfect, but it's my design, and I like it. This really is the **degree of freedom and control** I'm chasing as a programmer.
+
+I then decided to just shift things over to **Markdown** from Hashnode, essentially have two copies. But well, I mean certain things are different, like I moved the images to Imgur (very tedious), but like in terms of editor, I think Hashnode's still feels amazing.
+
+Of course, another part I really like is the support of `.tsx` in my blog, since I wrote plenty of [Nextjs](https://blogs.shenyien.cyou/insta-next) stuffs, and it does make a difference. And yeah, who knows I want to create some **custom components**, right? I would be able to do it easily over there, like here, if I wish to do captioning for images, I'd have to go
+
+```xml
+<center><i>This is a caption</i></center>
+```
+
+While it did take a while and quite some efforts, I think it's well worth it, and I'm pretty happy about my new blog!
+
+## Work
+
+### WFH & Adaptation
+
+My work's development has been more active since the start of this year to push for features & modules, though it was still mostly WFH for me.
+
+And this was actually somewhat a challenge for me at first, and I guess since last year. I gotta be honest that I wasn't focusing as well, and sometimes did slack off during work, resulting in me taking one to two extra hours after work to finish up the task.
+
+It was till around end of February when I started to pick things back up, and got back to my usual productive self to get things done.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="LW8C4bR"
+  format="jpeg"
+  alt="My humble workstation at home setup"
+  width={700}
+  height={400}
+/>
+
+But of course, I certainly like my home setup, and enjoyed a lot working on my own workplace at home!
+
+It also took sometime for me to transition from the **student mentality** to a **working mentality**. It's hard to describe how it felt, but my attitude, thoughts, and focus really shifted vastly.
+
+### Novelties
+
+Unlike many of my friends, I chose to join [Memo Agility](https://memoagility.com), which is more towards a smaller-sized company, and specifically, involved in a completely new project as the **sole developer** for several months. Of course, the industry of InsurTech itself had been novel to me.
+
+Things weren't easy, to be honest. I was new to **Spring Boot** (though the concepts were similar), and the **microservice** architecture? Completely new to me. I had also never really tinkered with DevOps much, not to mention deploying to AWS.
+
+However, over here, I had to wear all the **different hats** at the same time, from architecture and frontend to backend, DevOps, and even some of the product management and UI design!
+
+Of course, looking back, things turned out well, and I actually learned my way up fine. But of course, it did take some time for me to pick up all these new patterns and skills, and occupied some of my free time to read books on these topics.
+
+After just a few months in, I have already accomplished some feats that I'd consider impressive when I first started:
+
+1. Setup multiple CI/CD pipelines on GitHub that communicate with multiple repositories for deployment & testing
+    
+2. A successful deployment of the whole system in ECS over at AWS using Terraform *(The cost really goes up easily...)*
+    
+3. Implemented an asynchronous communication using Kafka
+    
+4. Architected and built the microservices in Spring Boot
+    
+
+Honestly, I'm glad that I made the decision to join this company as I believe I probably wouldn't have the chance to try around these things if not because of here. Some people might call it stress, but I find them fulfilling.
+
+*Really, while there are similarities, microservice is a very different concept from the usual monolith...*
+
+## Personal Development
+
+Blogging is surely one of the personal development activities, but unfortunately its priority is slightly lower.
+
+### AWS SAA-C03
+
+My main focus the past few months had been on **DevOps**, studying for [AWS Certified Solutions Architect - Associate](https://aws.amazon.com/certification/certified-solutions-architect-associate/) (SAA), just a certificate that I felt like taking. Why specifically SAA?
+
+Well, I felt like I have already progressed quite far down the frontend and backend roads, but DevOps was still quite a mystery for me. So I thought now that I have some extra time after work, seems like a good time, right?
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="28Fjlxj"
+  format="jpg"
+  alt="Ultimate AWS Certified Solutions Architect Associate (SAA)"
+  width={600}
+  height={300}
+/>
+
+
+Moreover, I knew since I started the company's project that I'd have to deploy it, and certainly I wouldn't be able to do so without the knowledge. I got the famous Stephane Maarek's [Ultimate AWS Certified Solutions Architect Associate SAA-C03](https://www.udemy.com/course/aws-certified-solutions-architect-associate-saa-c03/) from Udemy, and started to delve into it.
+
+It took me quite a few months to finally complete the course as I only spent about 30 - 60 minutes each day on it, then began to work on some practice questions. I'm still working on the questions, getting better in accuracy, and if everything goes according to plan, hopefully I'll pass it by **July**.
+
+And I gotta say, taking the course was indeed the right decision. Without **learning the essentials**, there's no way I can deploy the stuffs on AWS! [This guide](https://nexgeneerz.io/aws-computing-with-ecs-ec2-terraform/) and my friend, [Leo](https://my.linkedin.com/in/leowaiyei) also helped me a lot in setting up the infrastructure.
+
+### Reading
+
+Otherwise, I have been spending a decent amount of time reading **technical books** too. Mostly related to my work, I guess.
+
+Like I read about Spring Boot, testings, Microservices, Docker, and DevOps, really revolved around my work contents, and helped me establish the needed understanding to build the project.
+
+## Personal Life
+
+Initially, I thought my personal life for 2024 would be plain, but not sure if it was fortunate or unfortunate, life is always full of surprises, I guess.
+
+I came across my first ex in February, and things kinda hit off for a while. However, somehow it didn't turn out well in just a month, and my mood did take a hit and took a while to recover. Yeah, this was actually the main reason for my missing from blogging beside setting up the new blog.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="pZF14CS"
+  format="png"
+  alt="A nice picture I had from hiking"
+  width={600}
+  height={400}
+  caption="Nature has a calming effect"
+/>
+
+However, I somehow did pick up a new hobby: **hiking**, and for once in my life there's been something I look forward to every week! I guess touching the grass once in a while is totally needed for someone who sits all day long tapping on the keyboard, right?
+
+## Summary
+
+This year has been quite eventful so far, but I feel like it's still insufficient.
+
+While I have improved a lot in terms of my experience and skills, I feel like my mind has become **more numb** from the day-to-day work, and lost some of its sharp edge. This is mostly from the aspect of creativity and innovation that I am still lacking.
+
+Likewise, didn't achieve much from hackathons. We initially joined one earlier this year but pulled out due to bad execution, and joined another last minute, which didn't make through.
+
+I think I can still do better this year to explore more in many different fields and yeah, achieve better.
+
+Of course, I will resume my blogging now, gonna dive more into **Microservice and system design topics** up next!
