@@ -17,7 +17,7 @@ const seriesData: Series[] = [
     id: 'microservice',
     title: 'Building Microservices',
     description: `This is a series on microservices with practical examples. It will be a comprehensive guide to building microservices from scratch.`,
-    imgurId: 'T8oLraI',
+    imgurId: 'GPA5FWO',
   },
   {
     id: 'memory',
