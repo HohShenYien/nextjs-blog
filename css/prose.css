@@ -1,5 +1,5 @@
 .prose p {
-  font-size: 1.1rem;
+  font-size: 1.16rem;
 }
 
 .prose h2 {
@@ -11,7 +11,7 @@
 }
 
 .prose h4 {
-  font-size: 1.2rem;
+  font-size: 1.24rem;
 }
 
 .prose a {
@@ -81,4 +81,20 @@
 .dark .prose strong {
   background: linear-gradient(0, theme('colors.primary.900'), theme('colors.primary.900')) no-repeat
     right bottom / 100% 8px;
+}
+
+.dark .prose hr {
+  @apply border-t-slate-400;
+}
+
+.prose hr {
+  @apply border-t-slate-600;
+}
+
+.prose li > p {
+  @apply my-1.5;
+}
+
+.prose li {
+  @apply my-3;
 }

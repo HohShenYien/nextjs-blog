@@ -14,7 +14,7 @@ const Header = () => {
   const { style, className } = useHeaderStyles()
   return (
     <header className={clsx('flex items-center justify-between', className)} style={style}>
-      <div className="mx-auto flex max-w-3xl flex-1 items-center justify-between px-4 sm:px-6 lg:max-w-5xl xl:px-0">
+      <div className="mx-auto flex max-w-3xl flex-1 items-center justify-between px-4 sm:px-6 lg:max-w-6xl xl:px-0">
         <Link href="/" aria-label={siteMetadata.headerTitle}>
           <div className="flex items-center justify-between">
             <div className="mr-3">

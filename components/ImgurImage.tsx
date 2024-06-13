@@ -83,7 +83,7 @@ const ImgurImage = ({
     )
   }
   return (
-    <div
+    <figure
       className={clsx('flex flex-col', {
         'items-center': align === 'center',
         'items-start': align === 'left',
@@ -92,11 +92,11 @@ const ImgurImage = ({
     >
       {image}
       {caption && (
-        <div className="-mt-4 mb-3 text-base font-light italic text-gray-600 dark:text-gray-300">
+        <figcaption className="mb-3 text-base font-light italic text-gray-600 dark:text-gray-300">
           {caption}
-        </div>
+        </figcaption>
       )}
-    </div>
+    </figure>
   )
 }
 export default ImgurImage

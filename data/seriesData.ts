@@ -1,4 +1,4 @@
-interface Series {
+export interface Series {
   title: string
   description: string
   imgurId: string
@@ -14,6 +14,12 @@ const seriesData: Series[] = [
     imgurId: '2kNXqd2',
   },
   {
+    id: 'microservice',
+    title: 'Building Microservices',
+    description: `This is a series on microservices with practical examples. It will be a comprehensive guide to building microservices from scratch.`,
+    imgurId: 'T8oLraI',
+  },
+  {
     id: 'memory',
     title: 'Revisiting Memories',
     description: `A memory vault where I reminisce my past. Here you can peek into my life, the events that happened and the people that I met along my way.`,
@@ -23,14 +29,14 @@ const seriesData: Series[] = [
   {
     id: 'life',
     title: 'Life Beyond Codes',
-    description: `Wonders what a programmer does beside coding? Here's it.`,
+    description: `While I enjoy my career, I don't live in codes all the time. Here are some stories about my life beyond codes.`,
     imgurId: 'E0VqlBG',
     inverted: true,
   },
   {
     id: 'experience',
     title: "A Programmer's Tales",
-    description: `Here are some stories about my journey through the career of software engineering as a programmer. `,
+    description: `This is a personal career journal where I share my experiences, thoughts and lessons learned as a software engineer.`,
     imgurId: 'QstUidP',
   },
   {

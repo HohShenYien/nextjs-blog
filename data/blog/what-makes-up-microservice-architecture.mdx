@@ -1,0 +1,359 @@
+---
+title: What makes up Microservice Architecture?
+date: '2024-06-13'
+lastmod: '2024-06-13'
+tags: ['microservice', 'architecture', 'spring boot']
+draft: false
+series: 'microservice'
+summary: A high-level overview of various components within a microservice architecture
+image: 366uBy3
+---
+
+<TOCInline toc={props.toc} />
+
+So I bet you have heard about **horizontal scaling** and more often than not, **microservice architecture** is mentioned alongside.
+
+You might or might not know what microservice is, but how to build one is a totally different story.
+
+This article will show you the **high-level components** that make up a microservice architecture and the **problems** they solve. These specific problems arise during the transition from monolithic to microservice architecture.
+
+## What is Microservice Architecture
+
+So here's a quick primer on Microservice architecture, skip ahead if you've already known it.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="qudaQGc"
+  format="jpeg"
+  alt="E-Commerce Application"
+  width={400}
+  height={400}
+/>
+
+Imagine you're building an **e-commerce application** *(lame, but everyone knows)*, you started it off as a monolithic application, where everything is **packaged together** in one project and **deployed together**.
+
+Everything was fine and well, but as your web application grows in popularity, the users start to experience **timeout** and the application is **slowing** down. Oh no.
+
+<ImgurImage
+  size="full"
+  imgurId="1VsV4Wl"
+  format="jpeg"
+  alt="Using load balancer to distribute the loads across multiple instances"
+  width={240}
+  height={240}
+/>
+
+You thought about **load balancing**, great, you just need to add another copy of the server to reduce the load, everything runs smoothly again, life goes on.
+
+Before long, you find yourself adding one server after another, costs are climbing high, but users are still complaining about long response time! Are you going to continue adding more servers?
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="ks2LQ2j"
+  format="jpeg"
+  alt="Checkout slows down other users too"
+  width={600}
+  height={400}
+  caption="Checkout slows down other users too"
+/>
+
+You started your investigation and realized that the bulk of the slowdowns are due to the **complex computation** done during checkout, but every user is experiencing a slowdown, especially when it takes multiple seconds to load a product. Your customers are not very happy about it :(
+
+You could add even more servers, but as usage grows, the increasing payments will still slow down the other users who are merely browsing the products.
+
+Therefore, you thought about **separating the payment service** from your monolithic design. This way, you can just **scale the specific part** of the application that is resource-intensive!
+
+Most importantly, payments won't slow other users activities anymore! Users are more **okay to wait slightly longer during payment, but not when they're browsing**.
+
+---
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="1LTU587"
+  format="jpeg"
+  alt="Breaking down large monolithic to microservices"
+  width={600}
+  height={300}
+/>
+
+And this is the dawn of microservices — **breakdown** of a large monolithic backend into multiple microservices, each running on its own instances.
+
+Of course, it's not as simple as that. There are many **overheads** involved when it comes to dealing with microservices.
+
+For example, each service needs to **talk** with each other, how? What about **exposing APIs**, do all services expose themselves as public endpoints?
+
+## Service Discovery
+
+This explains the first question,
+
+> How do the microservices talk to each other?
+
+### The Problem
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="i3Et46I"
+  format="jpeg"
+  alt="Where are the services?"
+  width={500}
+  height={300}
+/>
+
+Say, I have microservices `Product` and `Payment`, and I launched 5 instances of each. My `Payment` Service needs to retrieve the product price info from the `Product` Service, while both are in the same network, but the `Payment` Service does not know the `Product` Service's IP Address!
+
+Moreover, in cloud-native environments where each server is essentially [ephemeral](https://medium.com/xgeeks/why-ephemeral-and-immutable-infrastructure-are-so-important-in-cloud-native-environments-7a7a8ce3c721), the server can be **replaced** anytime, changing the service's IP anytime *(unless a static IP has been specified).* This makes it unfeasible to set the IP addresses of other services as **configurations**.
+
+### The Solution
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="2E4Kopm"
+  format="jpeg"
+  alt="Service Discovery in action"
+  width={800}
+  height={400}
+/>
+
+Service Discovery.
+
+**Service Discovery Registry** will act as a **central hub** where all services can register themselves to the registry (also known as [self-registration](https://microservices.io/patterns/self-registration.html), the alternative is [3rd party registration](https://microservices.io/patterns/3rd-party-registration.html)).
+
+As a result, each microservice can now **query the Service Discovery Registry** for available instances of the service. Commonly, the libraries also implement some sort of load balancing on the client side (e.g., with `lb://` load balancing filter).
+
+Popular Service Discovery Registries used are [Netflix Eureka](https://github.com/Netflix/eureka/wiki/Eureka-at-a-glance), [Hashicorp Consul](https://consul.io/), and [Apache Zookeeper](http://zookeeper.apache.org/).
+
+## API Gateway
+
+This was the second question, how would the end users communicate with the microservices?
+
+### The Problem
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="glYglPS"
+  format="jpeg"
+  alt="Problem with communicating with microservices"
+  width={600}
+  height={500}
+/>
+
+Each microservice will typically be deployed in **separate instances**, sometimes multiple if necessary. Each instance will have its **IP address**, and it makes no sense to give the clients the set of IP addresses and ask them to match themselves!
+
+Like the Service Discovery problem, **changing IP addresses** also poses a huge challenge for clients to keep track of the IP addresses for each service.
+
+*It can also be different hostnames, but still, do you want to send to dozens of different hostnames and keep track of them in frontend?*
+
+### The Solution
+
+Introducing **API Gateway Server**!
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="VGxVCK0"
+  format="jpeg"
+  alt="API Gateway in action"
+  width={600}
+  height={500}
+/>
+
+The gateway server will be an **API entrypoint**, which the clients will use to interact with our microservices. The gateway server will **retrieve** the set of microservices and their IP addresses (or hostname) via the **Discovery Server** that we just set up.
+
+With configuration (or auto-configured), each endpoint/resource can then be mapped to their respective servers.
+
+As a result, the clients only need a single URL, which is the gateway server's, to access each microservice. Also, since the discovery service is aware of each **microservice's status**, the gateway server can **avoid sending to unhealthy instances** *(that failed to send a heartbeat to the discovery service)*.
+
+if you're using Spring Boot, [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway) is a good start, while Netflix's [Zuul](https://github.com/Netflix/zuul) is another open-source API gateway implementation.
+
+## Asynchronous Messaging
+
+So the microservices can communicate with each other now by calling APIs. But what if the destination microservice is down, or busy?
+
+### The Problem
+
+So say you have **two microservices**, the `payment service` and the `receipt service`, where the `payment service` needs to communicate with the `receipt service` to send an email of receipt to the users after they make a payment.
+
+Of course, the most straightforward way is to send a REST API request from the `payment service` to the `receipt service`.
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="U2AmsnG"
+  format="jpeg"
+  alt="Synchronous communication can slow other services"
+  width={700}
+  height={400}
+/>
+
+This works, but it creates a **dependency** of `receipt service` to `payment service`. What happens when the `receipt service` fails, e.g., being overloaded? The `payment service` will **fail together** (at least the portion that needs to communicate with the `receipt service`). Likewise, if the `receipt service` slows down, the `payment service` will also slow together.
+
+Your customers can't pay, and you lose revenue. This is bad.
+
+This came to me as a wow moment when I read the following from [DDIA](https://dataintensive.net/)
+
+> If service A and B both have an uptime of 99%, but service A depends on service B, causing service A's uptime to be 0.99 \* 0.99 = 98%
+
+### The Solution
+
+What if the `payment service` doesn't need to care if `receipt service` is working or not?
+
+Let's review back, does `payment service` need the response? Apparently no. As long as the payment goes through, the user's transaction is successful, and the receipt, while it's important, it's not critical for `payment service` to work.
+
+Therefore, this allows us to use **asynchronous messaging**. In simple terms, imagine a queue, that `payment service` pushes the requests to the queue, while `receipt service` pulls the request from the queue and processing it.
+
+**Asynchronous** here means that the sender does not need to wait for the response.
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="dD2cNUU"
+  format="jpeg"
+  alt="Asynchronous communication with messaging queue eliminates the wait"
+  width={600}
+  height={400}
+/>
+
+In this scenario, it's okay if the `receipt service`*(the consumer)* is slow to respond, or even fails! The queue will continue to expand, and when the `receipt service` is back available, it will continue to pull *(consume)* the requests *(messages)*. Meanwhile, the `payment service`*(the producer)* can continue to push (produce) the requests to the queue regardless of the status of the `receipt service`!
+
+Likewise, even if the `receipt service` is processing the requests slowly, the queue can act as a **buffer** and store the requests while waiting for `receipt service` to complete, and the `payment service` can continue to publish without interruption.
+
+The use of asynchronous communication essentially **decouples** the two services, removing the dependencies between them.
+
+Of course, it doesn't apply to all scenarios, such as when your `payment service` needs to read the product info from the `product service` to calculate the price. Nevertheless, **decoupling** via asynchronous messaging is always a good idea!
+
+[Apache Kafka](https://kafka.apache.org/) and [RabbitMQ](https://www.rabbitmq.com/) are the two most popular open-source solutions to achieve asynchronous messaging. Meanwhile, there are also solutions by cloud providers like [AWS SQS](https://aws.amazon.com/sqs/) and Google's [pub/sub](https://cloud.google.com/pubsub?hl=en).
+
+## Authentication Server
+
+Authentication is always a deep subject — It requires many considerations and weighing the pros and cons of each option. From stateful (OAuth tokens) to stateless (JWT), what is the best choice?
+
+But when it comes to microservice architecture, more considerations need to be made.
+
+### The Problem
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="zLGypLl"
+  format="jpeg"
+  alt="The service doesn't recognize the user"
+  width={500}
+  height={300}
+/>
+
+In monolithic architecture, authentication is often just deciding on statelessness or which library to use, and simply including it via a middleware (such as [Laravel](https://laravel.com/docs/11.x/authentication) or [Django](https://docs.djangoproject.com/en/5.0/topics/auth/)) or it's already included in the ecosystem like Spring Boot's [Spring Security](https://docs.spring.io/spring-security/reference/servlet/authentication/index.html).
+
+However, when it comes to microservice, there usually isn't a straightforward solution.
+
+The first challenge is **where we place the authentication logic**? Even after deciding on the location, we need to find a way to pass the **authentication information** to other microservices.
+
+Certainly not as easy as setting it up in monolithic, right?
+
+### The Solution
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="IbAn47b"
+  format="jpeg"
+  alt="Authentication Server identifies the user"
+  width={700}
+  height={300}
+/>
+
+#### Keycloak Server
+
+Personally, I always opt for stateful authentication with **OAuth 2.0** (refresh token & access token) when it comes to authentication. Therefore, my solution here will focus on it.
+
+I always believe that implementing authentication correctly is not easy, and I wouldn't want to reinvent the wheel, so I'll bring in an open-source solution — [Keycloak](https://www.keycloak.org/). Host Keycloak as one of the services, and connect to it.
+
+Keycloak provides OAuth 2.0 authentication functionality within, so we can leverage its capability and pass the tokens around. One option here would be using Cookies *(more secured)*, and another would be storing it in localstorage *(less secured)*.
+
+But how do we integrate the Keycloak Server? Check below for the architecture
+
+Every authenticated incoming request will have the tokens in its cookies, and the gateway server can intercept and send the tokens over to Keycloak for **validation**, and **identify the current user**. The info can then be embedded into the request's header as it travels between the microservices.
+
+The functionalities, including login and logout, can be directly called via **REST APIs** to the Keycloak Server. Moreover, Keycloak also provides a lot of other services, like revoking tokens, and password policy, which I find very convenient, rather than implementing by ourselves.
+
+#### Hybrid Authentication
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="TlMI0nL"
+  format="jpeg"
+  alt="Communicating about the user between services"
+  width={500}
+  height={300}
+/>
+
+While the info could be embedded directly into the request's header as plaintext, and with the right setup, microservices shouldn't be able to be accessed externally, it feels more right for me to implement an additional layer of security.
+
+This comes in from the **inter-microservice communication**, where the active user's info is being passed around. Of course, after initial validation, there's no point for each subsequent microservice to validate the tokens again as this will greatly increase the latency.
+
+Therefore, all the other microservices will rely on the info from the gateway server, and I believe that embedding the info in JWT is the right way to go. Reason? This allows each individual microservice to validate the authenticity of JWT, in case of a bad security policy that exposes the microservice to the public, leading to risks of impersonation. *(You can call me paranoid)*
+
+Of course, this is just a hypothetical scenario, and headers can definitely work. However, you'll also need to make sure you have **cleaned the headers** from incoming requests before passing on the request to other microservices to prevent users from impersonating others by tampering with their headers. *(If your header is predictable)*
+
+## Logging
+
+When an error occurs, we will check the log. However, where are the logs in case of microservice?
+
+### The Problem
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="VyLftny"
+  format="jpeg"
+  alt="Problem with logging"
+  width={700}
+  height={400}
+/>
+
+Using back the same example earlier, we have `payment service`, `receipt service` and an additional `invoice service`. Let's say we have scaled up, and there are like 5 instances for each service (totalling up to 15).
+
+Now, a user reported an **error** when making payment, and you wish to check the stacktrace from the server logs, but which server do you find the logs? Let's say in a hypothetical scenario, where the user's request travelled many services:
+
+As shown above, the single request travelled from `payment service` to `invoice service`, back to `payment service`, and finally to `receipt service`. **Where exactly did the exception happened**?
+
+And worse, the logs can be disjoint, where logs 1-5 in `payment service`, logs 3-8 in `invoice service` and logs 4-6 in `receipt service` all correspond to the same request, but how do you track them? **Do you have to join manually?**
+
+Debugging in microservice certainly isn't fun, and without a proper logging infrastructure, it will quickly become a nightmare.
+
+### The Solution
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="uAAn323"
+  format="jpeg"
+  alt="Using ELK to solve the logging problem"
+  width={700}
+  height={400}
+/>
+
+A straightforward method is to **tag each request with a unique ID**, and the ID will be passed along as the request travels across different microservices. This way, we can at least more easily associate multiple disjoint logs together. *(This is typically known as the* `correlation ID`*)*
+
+Moreover, we can also aggregate the logs by using the [**ELK Stack**](https://aws.amazon.com/what-is/elk-stack/). Let's break it down
+
+1. **ElasticSearch**
+    
+    To query and search for keywords in the logs for analysis.
+    
+2. **LogStash**
+    
+    LogStash can help to load the data into ElasticSearch
+    
+3. **Kibana**
+    
+    Finally, Kibana visualizes the log data to help in better monitoring and analysis.
+    
+
+Those 3 together make up the Logging Stack in microservice. As a result, all the logs are stored in a centralized location, properly indexed, and can be queried quickly.
+
+The only thing remaining is to configure your microservices to **send logs generated** over to your ELK, and from there you can quickly look up the exceptions.
+
+*PS: ELK also supports*`correlation ID`*, so you can visualize the path that a request takes as it travels from user to your server, and back to the user. As long as you tag each request properly, you can immediately retrieve all the logs related to a specific request given the*`correlation ID`*.*
+
+## Summary
+
+This short article summarizes the **main components** of a microservice architecture and their purposes, that is, to solve the problems that arise when implementing microservice architecture.
+
+Of course, these are more of the *surface* of the problems faced when implementing microservice architecture. However, these will be the first problems that you will have to consider before diving straight into the world of microservices.
+
+Other larger problems also include **data management***(which microservice holds what data, and how they exchange?)* and of course, **race conditions***(if service A and B both modify a piece of data at the same time, who will win?)*
+
+*Sometimes I find it ironic that these problems arise due to microservice architecture, and we have to build so much more to get it right in microservice.*

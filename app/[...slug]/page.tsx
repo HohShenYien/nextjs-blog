@@ -14,6 +14,7 @@ import { Metadata } from 'next'
 import siteMetadata from '@/data/siteMetadata'
 import { notFound } from 'next/navigation'
 import { generateImgurUrl } from '@/components/ImgurImage'
+import seriesData from '@/data/seriesData'
 
 const defaultLayout = 'PostLayout'
 const layouts = {
@@ -106,6 +107,10 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
       name: author.name,
     }
   })
+  const series = post.series ? seriesData.find((s) => s.id === post.series) : undefined
+  const seriesPosts = series
+    ? sortPosts(allBlogs.filter((p) => p.series === series.id)).slice(0, 5)
+    : []
 
   const Layout = layouts[post.layout || defaultLayout]
 
@@ -115,7 +120,14 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Layout content={mainContent} authorDetails={authorDetails} next={next} prev={prev}>
+      <Layout
+        content={mainContent}
+        authorDetails={authorDetails}
+        next={next}
+        prev={prev}
+        series={series}
+        seriesPosts={seriesPosts}
+      >
         <MDXLayoutRenderer code={post.body.code} components={components} toc={post.toc} />
       </Layout>
     </>

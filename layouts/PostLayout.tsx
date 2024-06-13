@@ -10,6 +10,8 @@ import Tag from '@/components/Tag'
 import siteMetadata from '@/data/siteMetadata'
 import ScrollTopAndComment from '@/components/ScrollTopAndComment'
 import ImgurImage from '@/components/ImgurImage'
+import { Series } from '@/data/seriesData'
+import SeriesPosts from '@/components/SeriesPosts'
 
 const editUrl = (path) => `${siteMetadata.siteRepo}/blob/main/data/blog/${path}`
 const discussUrl = (path) =>
@@ -28,9 +30,19 @@ interface LayoutProps {
   next?: { path: string; title: string }
   prev?: { path: string; title: string }
   children: ReactNode
+  series?: Series
+  seriesPosts?: Blog[]
 }
 
-export default function PostLayout({ content, authorDetails, next, prev, children }: LayoutProps) {
+export default function PostLayout({
+  content,
+  authorDetails,
+  next,
+  prev,
+  children,
+  series,
+  seriesPosts = [],
+}: LayoutProps) {
   const { filePath, path, slug, date, title, tags, image } = content
 
   return (
@@ -70,22 +82,26 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
               <dd>
                 <ul className="flex flex-wrap justify-center gap-4 sm:space-x-12 xl:block xl:space-x-0 xl:space-y-8">
                   {authorDetails.map((author) => (
-                    <li className="flex items-center space-x-2" key={author.name}>
+                    <li className="flex items-center space-x-4" key={author.name}>
                       {author.avatar && (
                         <Link href="/about">
                           <Image
                             src={author.avatar}
-                            width={38}
-                            height={38}
+                            width={48}
+                            height={48}
                             alt="avatar"
-                            className="h-10 w-10 rounded-full"
+                            className="h-12 w-12 rounded-full"
                           />
                         </Link>
                       )}
-                      <dl className="whitespace-nowrap text-sm font-medium leading-5">
+                      <dl className="whitespace-nowrap font-medium leading-5">
                         <dt className="sr-only">Name</dt>
                         <dd className="text-primary-400 hover:text-primary-600 dark:hover:text-primary-300">
-                          <Link href="/about">{author.name}</Link>
+                          <address>
+                            <Link href="/about" rel="author" className="not-italic">
+                              {author.name}
+                            </Link>
+                          </address>
                         </dd>
                         <dt className="sr-only">Twitter</dt>
                         <dd>
@@ -113,6 +129,11 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                 {` • `}
                 <Link href={editUrl(filePath)}>View on GitHub</Link>
               </div>
+              {series && (
+                <div className="py-6">
+                  <SeriesPosts curSlug={slug} series={series} seriesPosts={seriesPosts} />
+                </div>
+              )}
               {siteMetadata.comments && (
                 <div
                   className="pb-6 pt-6 text-center text-gray-700 dark:text-gray-300"
@@ -122,7 +143,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                 </div>
               )}
             </div>
-            <footer>
+            <aside>
               <div className="divide-gray-200 text-sm font-medium leading-5 dark:divide-gray-700 xl:col-start-1 xl:row-start-2 xl:divide-y">
                 {tags && (
                   <div className="py-4 xl:py-8">
@@ -133,6 +154,16 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                       {tags.map((tag) => (
                         <Tag key={tag} text={tag} />
                       ))}
+                    </div>
+                  </div>
+                )}
+                {series && (
+                  <div className="py-4 xl:py-8">
+                    <h2 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Article Series
+                    </h2>
+                    <div className="text-primary-400 hover:text-primary-600 dark:hover:text-primary-300">
+                      <Link href={`/series/${series.id}`}>{series.title}</Link>
                     </div>
                   </div>
                 )}
@@ -170,7 +201,7 @@ export default function PostLayout({ content, authorDetails, next, prev, childre
                   &larr; Back to the blog
                 </Link>
               </div>
-            </footer>
+            </aside>
           </div>
         </div>
       </article>
