@@ -50,7 +50,7 @@
 }
 
 .prose code {
-  @apply bg-primary-100 px-1 text-primary-950 dark:bg-primary-950 dark:text-primary-100;
+  @apply bg-primary-100 px-1 text-primary-950 dark:bg-primary-900 dark:text-primary-100;
 }
 .prose code::before {
   content: '';
@@ -63,24 +63,7 @@
   @apply bg-primary-950;
 }
 .prose pre code {
-  @apply bg-primary-950/20 text-primary-50;
-}
-
-.prose strong:hover,
-.dark .prose strong:hover {
-  background-size: 100% 12px;
-}
-
-.prose strong {
-  text-decoration: none;
-  transition: background-size 200ms;
-  background: linear-gradient(0, theme('colors.primary.200'), theme('colors.primary.200')) no-repeat
-    right bottom / 100% 8px;
-}
-
-.dark .prose strong {
-  background: linear-gradient(0, theme('colors.primary.900'), theme('colors.primary.900')) no-repeat
-    right bottom / 100% 8px;
+  @apply bg-primary-950/20 text-primary-50 dark:bg-primary-950/20;
 }
 
 .dark .prose hr {

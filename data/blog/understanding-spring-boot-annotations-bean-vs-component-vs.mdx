@@ -1,0 +1,265 @@
+---
+title: 'Understanding Spring Boot Annotations: @Bean vs @Component vs ...'
+date: '2024-07-05'
+lastmod: '2024-07-05'
+tags: ['spring-boot', 'annotations', 'java']
+draft: false
+summary: 'A clear, concise introduction to understanding the annotations, and the differences between the different annotations in Spring Boot'
+image: 7kBLsMf
+---
+
+<TOCInline toc={props.toc} />
+
+Annotations make up a huge part of Spring Boot. In fact, that's how Spring Boot came up — providing **annotations as configurations**, instead of manually defining the configurations in an XML file.
+
+However, when starting in Spring Boot, these are the concepts that always baffle us, and often, we just use whatever *"seems right"* or copied from another class without understanding.
+
+This article should shed some light on how these annotations come together in Spring Boot.
+
+## Bean — The Foundation
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="aTmtnkm"
+  format="jpeg"
+  alt="Coffee Beans"
+  width={400}
+  height={400}
+/>
+
+The **core annotations** in Spring Boot, like `@Service`, `@Component`, `@Configuration`, `@Repository`, and of course, `@Bean`. While each has a different meaning, their main purpose is to define a **bean**.
+
+**So what is a bean?**
+
+### Beans as Singleton
+
+Each bean will exist as a **singleton** in your application. In a formal definition,
+
+> Singleton ... ensures that a class has only one instance, while providing a global access point to this instance.
+> 
+> Source: [Refactoring Guru](https://refactoring.guru/design-patterns/singleton)
+
+That is, in an application, there will only be a **single instance** of the class. For example, using the `@Component` annotation to define a bean
+
+```java
+@Component
+public class CustomerFactory {
+  ...
+}
+```
+
+As a result, in your Spring application, there will be only **one, global** `CustomerFactory` instance.
+
+To access these beans, we will leverage a second characteristic of Spring Boot applications — **Dependency Injections**.
+
+### Dependency Injection — Bringing Beans Together
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="GYVCrEE"
+  format="jpeg"
+  alt="Dependency Injection"
+  width={600}
+  height={300}
+/>
+
+What if one bean needs to access another bean's functionality? For instance, my `CustomerService` class would need to access the database via `CustomerRepository`*(I'll explain these later, I promise)*, and this is where Spring Boot uses **Dependency Injection**
+
+> Dependency injection means giving an object its instance variables.
+> 
+> Source: [James Shore's Blog](https://www.jamesshore.com/v2/blog/2006/dependency-injection-demystified)
+
+Since Spring Boot **instantiates all the beans when starting up**, Spring Boot will also **pass the beans to where needed**. Typically, it can be done by **declaring them in the constructor** or **using the annotation**`@Autowired`.
+
+Personally, I prefer using Lombok's [`@RequiredArgConstructor`](https://www.baeldung.com/java-lombok-constructor-annotation), which will automatically create a constructor with all of the class's final fields.
+
+```java
+@Service
+@RequiredArgsConstructor
+public CustomerService {
+  private final CustomerRepository customerRepository;
+
+  // The constructor created by @RequiredArgsConstructor,
+  // doesn't need to be created manually anymore.
+  /* 
+  * public CustomerService(CustomerRepository customerRepository) {
+  *   this.customerRepository = customerRepository;
+  * }
+  */
+}
+```
+
+When instantiating this `CustomerService`, Spring Boot will look at the constructor, and pass the `CustomerRepository` required.
+
+*(It's kinda like building a dependency graph, so if CustomerService needs CustomerRepository, it will then look into CustomerRepository, see what it needs and builds it up)*
+
+**Note**: A circular dependency can happen if say Service A requires Service B, and Service B needs Service A. Try to avoid it if possible, otherwise you'll need to [work around](https://www.baeldung.com/circular-dependencies-in-spring) it.
+
+## Learning Annotations
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="SzRMSKf"
+  format="jpeg"
+  alt="Everything is a bean!"
+  width={600}
+  height={300}
+/>
+
+Now that you understand what exactly a bean is in Spring Boot, let's see what each type of bean does.
+
+**Note**: All of the following annotations will make the class a **bean**, however, some of them do come with additional functionalities.
+
+### `@Component`
+
+`@Component` is the most fundamental bean annotation in Spring Boot, the class will be turned into a bean with this annotation.
+
+```java
+@Component
+@RequiredArgsConstructor // this is to automatically creates constructor
+public class CustomerFactory {
+  // Spring Boot will inject any bean required
+  private final CustomerService customerService;
+}
+
+@Component
+@RequiredArgsConstructor
+public class CustomerGroupFactory {
+  // and the component bean can also be freely injected in other beans
+  private final CustomerFactory customerFactory;
+}
+```
+
+### `@Service`
+
+Actually, it's just the same as `@Component`. It just makes the class a bean.
+
+`@Service` is more of a semantic feature, which marks that the class is one in the **Service Layer**. That is, the service is where the **business logic** is, here is where you process the data from users, save them in the database using the `repository`, and return the data back to the user via the `controller`.
+
+Here's a very simple demonstration of the use of Service. While simplified, most [CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete) related operations, in their essence, are just like this.
+
+```java
+@Service
+@RequiredArgsConstructor // creates a constructor to inject CustomerRepository
+public class CustomerService {
+  private final CustomerRepository customerRepository;
+
+  public CustomerDetails saveCustomer(SaveCustomerRequest request) {
+    // First, we process the data from client, turn it into a backend object
+    Customer customer = new Customer(request.name, request.email,...);
+
+    // Then we save it into database via repository
+    Customer savedCustomer = customerRepository.save(customer);
+
+    // Lastly, we transform the data and pass it back to user
+    return new CustomerDetails(savedCustomer.id, ...);
+  }
+}
+```
+
+## `@Configuration`
+
+Again, like `@Component`, it **marks a class to be a bean**.
+
+So it is more of a semantic feature again. It means that the class is **a configuration class that contains configuration beans**.
+
+This typically occurs when we want to override the **default behavior** of Spring Boot, that is, override the default implementation of Spring Boot. A common example would be to [configure the security](https://www.baeldung.com/spring-security-custom-filter).
+
+Of course, this configuration class can also consist of **custom configuration** specific to your application, for example, you might be defining a [RedisTemplate](https://docs.spring.io/spring-data/redis/reference/redis/template.html) to create a Redis client connected to your Redis cluster.
+
+As `@Configuration` is usually used with `@Bean`, the example will go below.
+
+## `@Bean`
+
+It's finally something different. `@Bean` will mark the object returned from a method a bean.
+
+Yupp, not the class, but the return type of the method.A
+
+Beside the examples above, you might also want to create a [RestTemplate](https://www.baeldung.com/rest-template), to **send REST API calls to 3rd party applications** that only provide REST endpoints for integrations. Let's say this `RestTemplate` bean is specifically for this integration, so you'd want to set the base URL for it.
+
+```java
+@Configuration
+public class WebConfig {
+  // Retrieve the URL from configuration properties file
+  @Value("${some-application.url}")
+  private String someApplicationBaseUrl;
+
+  @Bean("some-application")
+  public RestTemplate getRestTemplate() {
+    RestTemplate template = new RestTemplate();
+    template.setUriTemplateHandler(
+        new DefaultUriBuilderFactory("https://some-application.com")
+    );
+    return template;
+  }
+}
+```
+
+So now, we have a `RestTemplate` bean in our application! And as you might have **multiple**`RestTemplate` beans around since you might want to integrate with multiple 3rd parties, that's why we have annotated the bean with the name `"some-application"`.
+
+If we wish to inject this particular `RestTemplate` bean with name `"some-application"`, we have to specify it via the `@Qualifier` annotation.
+
+```java
+@Service
+@RequiredArgsConstructor
+public class CustomerService {
+  private final CustomerRepository customerRepository;
+  private final RestTemplate someApplicationRestTemplate;
+
+  public CustomerService(CustomerRepository customerRepository,
+        @Qualifier("some-application") RestTemplate restTemplate) {
+    this.customerRepository = customerRepository;
+    someApplicationRestTemplate = restTemplate;
+  }
+}
+```
+
+Unfortunately, the `@RequiredArgsConstructor` won't work with `@Qualifier` annotation, so we have to manually define the constructor. An alternative is to use [`@Autowired`](https://www.baeldung.com/spring-autowire) annotation, but personally, I prefer constructor way to have more control.
+
+*Note: You can also pass the name in other annotations, but the bean names are typically used in*`@Bean`*only.*
+
+## `@Controller`
+
+Back to the class bean again! `@Controller` will **make the class a bean** and semantically indicate that the class is **at the controller layer**.
+
+The controller layer means **this class exposes the API endpoints** for clients to consume.
+
+For example, you might want to allow users to **create a Customer** by `POST`ing to `/customers`
+
+```java
+@Controller
+@RequestMapping("/customers") // The base URL of the API from this class
+@RequiredArgsController
+public class CustomerController {
+  private final CustomerService customerService;
+
+  @PostMapping("") // Accepts POST requests to the base URL
+  public ResponseEntity<CustomerResponse> create(
+      @RequestBody customerRequest) {
+    Customer customer = customerService.create(customerRequest);
+    ...
+  }
+}
+```
+
+## Summary
+
+That's pretty much it, some of the most commonly used annotations in Spring Boot. They might seem a little magical, but annotations in Java essentially serve a single purpose
+
+> Annotations provide instructions / metadata to the JVM / compiler to build the codes
+
+As a result, the annotations can add additional codes, like how Lombok's `RequiredArgsConstructor` can generate constructors for you using annotations. Likewise, Spring Boot's `@Component` makes the class a singleton bean.
+
+<ImgurImage
+  size="full"
+  imgurId="QBmeH31"
+  format="png"
+  alt="Example annotation from Spring Security"
+  width={800}
+  height={800}
+  caption={<>Example documentation on annotations from <a href="https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html#method-security-architecture" target="_blank">Spring Security</a></>}
+/>
+
+Beside these bean-related annotations, Spring Boot has many other annotations, and sometimes can only be found **via their documentation**. It does take some form of experience for you to slowly build your understandings and knowledge towards Spring Boot.
+
+*Unfortunately, at least for me, Spring Boot's documentations isn't always easy to navigate*
