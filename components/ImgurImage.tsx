@@ -92,7 +92,7 @@ const ImgurImage = ({
     >
       {image}
       {caption && (
-        <figcaption className="mb-3 text-base font-light italic text-gray-600 dark:text-gray-300">
+        <figcaption className="-mt-3 mb-3 text-base font-light italic text-gray-600 dark:text-gray-300">
           {caption}
         </figcaption>
       )}

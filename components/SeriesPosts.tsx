@@ -21,7 +21,7 @@ export default function SeriesPosts({ curSlug, series, seriesPosts }: SeriesPost
         </Link>
       </h3>
       <ul className="space-y-3">
-        {seriesPosts.map(({ slug, title, image, tags, summary }) => (
+        {seriesPosts.slice(0, 5).map(({ slug, title, image, tags, summary }) => (
           <li
             key={slug}
             className={clsx(
@@ -62,6 +62,17 @@ export default function SeriesPosts({ curSlug, series, seriesPosts }: SeriesPost
           </li>
         ))}
       </ul>
+      {seriesPosts.length > 5 && (
+        <div className="mt-8 flex justify-end text-base font-medium leading-6">
+          <Link
+            aria-label="More posts"
+            href={`/series/${series.id}`}
+            className="text-primary-400 hover:text-primary-600 dark:hover:text-primary-300"
+          >
+            More Posts &rarr;
+          </Link>
+        </div>
+      )}
     </aside>
   )
 }

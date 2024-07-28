@@ -1,0 +1,464 @@
+---
+title: "Developing Microservices Locally with Docker Compose"
+date: '2024-07-28'
+lastmod: '2024-07-28'
+tags: ['microservice', 'docker', 'spring-boot', 'docker-compose']
+draft: false
+summary: How do you run your microservices locally using Docker Compose for local development & testing?
+image: d3pEGub
+series: microservice
+---
+
+<TOCInline toc={props.toc} />
+
+**Running everything locally** is typically [not recommended](https://stackoverflow.com/a/64251784/24886836) when developing microservices due to their complexity, and instead, alternatives like test-driven development, mocking, or dev servers are preferred.
+
+However, I strongly believe that while you can't run everything locally, it's important to at least **be able to run some** of them locally. This is possible if your services **don't somehow depend on all other services**, essentially building a [distributed monolith](https://www.linkedin.com/pulse/you-building-microservices-distributed-monolith-gireesh-kumar/).
+
+While unit tests cover a lot of use cases, there are times when the **feature can only be tested via integration testing**. For example, your `receipt service` is only triggered by events from the `payment service`, and to test it.
+
+In this case, you'd need to run your CI/CD, wait for some good ol' 20-minute build and test time to find out that you missed a corner case, and wait another 20 minutes to ensure it works... This **DOES NOT FEEL RIGHT.**
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="LAxBppb"
+  format="png"
+  alt="Mandatory xkcd reference"
+  width={400}
+  height={400}
+  caption="Mandatory xkcd reference"
+  href="https://xkcd.com/303/"
+/>
+
+Hence, that's why being able to run them locally is a blessing, as it **reduces the testing time** and makes the **feedback cycle faste**r.
+
+## Problems with developing microservices locally
+
+Developing monolithic applications probably only needs to run a single docker container or simply run them locally.
+
+However, in the world of microservices, things aren't that straightforward.
+
+### Starting Multiple Services
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="MwyuTaL"
+  format="png"
+  alt="Need to start many services"
+  width={500}
+  height={500}
+/>
+
+First off, there might be **10 or more microservices** that you need to run at the same time, how are you going to do that?
+
+Starting them manually? Probably not a good idea.
+
+Maybe you can compile the services you need to launch into a single script. Sounds better, but since there are many services, how many scripts do you need to start them, so this is no good too.
+
+### Service Dependencies
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="RXGl3cp"
+  format="png"
+  alt="A messy depdency"
+  width={600}
+  height={300}
+/>
+
+Moreover, some services also **depend on other dependencies and each other too**.
+
+For example, most of the microservices probably **depend on your database**, and some on your Redis store or Kafka. In terms of inter-services, your **gateway server might depend on your auth server** and **every service depends on Service Discovery** to communicate.
+
+This makes starting the services manually even less feasible as you now have to consider the dependency graph.
+
+---
+
+### Other Problems
+
+Beyond running the services, there are still some other significant problems that will **not be addressed by using Docker Compose** (meaning you'll still encounter them despite following this article...), that are worth mentioning.
+
+#### Resource Consumption
+
+Each service **will not consume too much memory**\*(in the scale of hundreds of MBs)\*. However, if you have more than dozens of services... Good luck with that.
+
+Nevertheless, even if you have hundreds of services, you should only **need less than 10 services running** at the same time as each microservice should be as independent as possible (or you run into the distributed monolith antipattern...)
+
+#### Taking too long to run & build
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="zKfaFYx"
+  format="png"
+  alt="Running & Building is slow"
+  width={500}
+  height={400}
+/>
+
+Even with Docker Compose, you can't escape from **starting the services**. For me, it is usually in the range of 5 - 10 minutes to start the necessary service dependencies, but if you only work on a single service at a time, this should only happen once per day.
+
+However, if your workflow requires **rebuilding the services**, it might take more than 5 minutes to build and rerun the service you're developing. This long feedback loop is not good, but I will propose a simple workaround by the end of this article.
+
+## Docker & Docker Compose 101
+
+Before we look into the solution, let's briefly discuss Docker and Docker Compose.
+
+### Docker
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="aSsY3HM"
+  format="png"
+  alt="Docker"
+  width={600}
+  height={400}
+/>
+
+[Docker](https://www.docker.com/) allows you to run containers, which are **like virtual machines**, but much more lightweight as it doesn't start a whole operating system. Rather, it **creates isolated environments** in your system to separate each container from one another.
+
+The **container will run images** that contain your **application codes**, typically built and bundled into binary files. In terms of microservices, **each container will usually host a separate microservice**.
+
+[Learn more about Docker](https://docs.docker.com/guides/docker-overview/)
+
+### Docker Compose
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="ccK4Gds"
+  format="png"
+  alt="Docker Compose"
+  width={600}
+  height={400}
+/>
+
+While Docker allows you to run individual containers, **Docker Compose orchestrates (coordinates) the containers** based on your configuration.
+
+By orchestrating, Docker Compose can **launch multiple containers together**, **following an order** that you define. That is, if your `User Service` depends on `Database Service`, then Docker Compose can ensure that the `Database Service` is started and in healthy state before starting your `User Service`.
+
+Furthermore, Docker Compose also **simplifies the process of mounting**, **networking**, and **other definitions** like health check by allowing you to define them all in one file — `docker-compose.yaml`.
+
+[Learn more about Docker Compose](https://docs.docker.com/compose/)
+
+## Developing & Building in Docker
+
+Let's first start by preparing 2 Dockerfiles:
+
+1. Dockerfile.dev, and
+    
+2. Dockerfile.build
+    
+
+### Dev Dockerfile
+
+This is the Dockerfile that has only one purpose: development.
+
+Therefore, this particular Dockerfile is typically simple, containing only 4 sections:
+
+1. Environment to run the container in
+    
+2. Installation of additional OS-level dependencies, typically `curl`
+    
+3. Setting the working directory
+    
+4. Setting the entrypoint
+    
+
+Let's look at a quick example:
+
+```dockerfile
+# Step 1: Defining environment
+FROM openjdk:17-jdk-alpine
+# Step 2: Any additional OS dependencies
+RUN apk add curl
+
+# Step 3: Setting up working directory
+## Note: Your codes should be mounted here
+WORKDIR /workspace/app
+
+# Step 4: Setting the entrypoint
+## This is whatever command to run your service, be it go run, npm start, etc.
+ENTRYPOINT ./gradlew :user-service:bootRun --args='--spring.profiles.active=local'
+```
+
+With just 4 simple steps, you have dockerized your local development environment. This can already **eliminate the universal "*This works in my computer*" problem**.
+
+Additionally, you can use this container for **other purposes**, such as testing and linting. The concept is somewhat similar to VS Code's [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers) except you don't develop in the container.
+
+By running your container this way, all your changes can be **immediately reflected** (if you're running with hot reload like Nest.js), or you can just restart the container. While it still takes around 2-3 minutes to start up, this is much faster than rebuilding the service entirely.
+
+Note: **Your codes need to be mounted** at `/workspace/app` for it to work.
+
+### Build Dockerfile
+
+Build Dockerfile is usually more specific for the framework that you're building for. You can usually find the Dockerfile template from a quick Google Search. For example, here's a typical Dockerfile for Spring Boot which also uses a [multi-stage build](https://docs.docker.com/build/building/multi-stage/):
+
+```dockerfile
+# Stage 1
+FROM openjdk:17-jdk-alpine as build
+
+ARG SERVICE="user-service"
+ARG VERSION="0.0.1"
+WORKDIR /workspace/app
+
+COPY gradlew settings.gradle build.gradle ./
+COPY gradle ./gradle
+COPY $SERVICE ./$SERVICE
+
+RUN ./gradlew :$SERVICE:bootJar -x test
+RUN mkdir -p $SERVICE/build/libs/dependency && (cd $SERVICE/build/libs/dependency; jar -xf ../$SERVICE-$VERSION.jar)
+
+# Stage 2
+FROM openjdk:17-jdk-alpine
+
+ARG SERVICE="user-service"
+ARG DEPENDENCY=/workspace/app/$SERVICE/build/libs/dependency
+
+VOLUME /tmp
+RUN apk add curl
+
+COPY --from=build ${DEPENDENCY}/BOOT-INF/lib /app/lib
+COPY --from=build ${DEPENDENCY}/META-INF /app/META-INF
+COPY --from=build ${DEPENDENCY}/BOOT-INF/classes /app
+ENTRYPOINT ["java","-cp","app:app/lib/*","com.yourapp.userservice.UserServiceApplication"]
+```
+
+I'll leave the explanation of the Dockerfile to your ChatGPT if you're looking for one.
+
+This Dockerfile is used for building and running your services. It also can be modified slightly for your production use.
+
+### Why Dev & Build Dockerfile?
+
+Typically, running built mode (like jar or binaries) is **faster**, **less resource-intensive**, and **takes less time to start**. Therefore, I do prefer to run the services that I'm not developing in Build mode.
+
+Besides, when I developing with Spring Boot, I noticed that the following error would happen when I tried to run more than 2 services in Dev mode:
+
+```dockerfile
+Gradle build daemon disappeared unexpectedly
+```
+
+*(Which I believe it's the OS that killed it due to high memory consumption, but the point is made)*
+
+## Developing with Docker Compose
+
+Again, like above, we will have 2 Docker Compose:
+
+1. `docker-compose.yml` for built mode, and
+    
+2. `docker-compose-dev.yml` for dev mode
+    
+
+### Build Mode Docker Compose
+
+In build mode, your main concern will be the **start sequence** and **health check metrics**.
+
+For example, you might have a Postgres database running, and your `User Service` depends on it, so you might need something like:
+
+```yaml
+# Each microservice / additional service will be a separate service,
+# which will be a separate container
+services:
+  # The service name
+  database:
+    # Typical docker stuffs
+    image: postgres
+    container_name: postgresql
+    # Environment variable for the container, refer to the image
+    # documentation for usage of each environment variables
+    environment:
+      POSTGRES_DB: database
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGUSER: postgres
+    # Healthcheck metrics for postgres database (1)
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready", "-d", "db_prod" ]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 10s
+    # Exposing the port so that you can access from your local environment
+    # You have to make sure that the port is not in use,
+    # hence the mapping of postgres 5432 to local 5431 to avoid conflict
+    ports:
+      - "5431:5432"
+    # The postgres data will be persistent so that restarting
+    # the container will not erase the data
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    # Networks (2)
+    networks:
+      backend:
+        aliases:
+          - database
+
+  # One of your microservices, the user-service (3)
+  userservice:
+    container_name: user-service
+    # Build Context is where the service is located (4)
+    build:
+      context: ..
+      dockerfile: ./user-service/docker/Dockerfile.build
+    # Healthcheck metrics (1)
+    healthcheck:
+      test: "curl http://localhost:8080/actuator/health | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Dependency, to start user-service, it will require the database
+    # to be healthy, based on database's health check metrics (3)
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "8074:8080"
+    networks:
+      - backend
+
+# The persistent data storage will be defined here
+volumes:
+  pg_data:
+
+# The available network will be listed here
+networks:
+  backend:
+    driver: bridge
+```
+
+Note:
+
+1. The health check command will be a single command that will be run inside the container to **determine the health status** of the service. The other 4 lines are configurations to determine the frequency and timeouts for the health check.
+    
+2. The network configuration is important to make sure all microservices are in the **same network** so that they can **communicate** with one another. Alias means that the other services can just use `http://database` to talk to it.
+    
+3. The dependency is what defines the **sequence of launch**. If one service depends on another, then the other services must start first. With proper configuration, you can start all the necessary services with a single command.
+    
+4. Build Context is **where your service is located**. This is usually the root folder of the project, and in this context, the Dockerfile path is **relative to the build context**.
+    
+
+Of course, this is a simple example, but even if it's just 5 services like this will quickly become complicated to handle the dependencies:
+
+<ImgurImage
+  size="huge thumbnail"
+  imgurId="9jRw8Mb"
+  format="jpg"
+  alt="A possible depdency graph with 5 services"
+  width={500}
+  height={500}
+/>
+
+Even with that complexity, if you have defined your dependencies correctly, all you need to do is to run the following command
+
+```bash
+# To build, run docker compose -f ./docker/docker-compose.yml build userservice
+docker compose -f ./docker/docker-compose.yml up userservice
+```
+
+And the services will be **started with the correct sequence**! This is a huge simplification of the 2 problems mentioned earlier.
+
+### Dev Mode Docker Compose
+
+Lastly, you will also need to prepare a Docker Compose file for development purposes. I usually avoid defining the dependencies here so that it doesn't mix build & dev containers.
+
+```yaml
+# Each microservice / additional service will be a separate service,
+# which will be a separate container
+services:
+  # One of your microservices, the user-service
+  userservice:
+    container_name: user-service
+    # Build Context is where the service is located
+    build:
+      context: ..
+      ## Note the use of dev Dockerfile instead of build Dockerfile
+      dockerfile: ./user-service/docker/Dockerfile.dev
+    # Mounting your codes in read mode (1)
+    volumes:
+      - ..:/workspace/app:r
+    # Healthcheck metrics
+    healthcheck:
+      test: "curl http://localhost:8080/actuator/health | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8074:8080"
+    # You will want to use the same network name
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+```
+
+*Note the missing dependency and the additional volumes in the dev mode.*
+
+About the volumes:
+
+1. The codes (located in `..` relative to the Docker Compose file), are **mounted in read mode** in the workspace directory, this allows any new codes to be **immediately available** to the container.
+    
+
+Likewise, you will only need to run the following command to start the service in dev mode
+
+```bash
+# To build, run docker compose -f ./docker/docker-compose-dev.yml build userservice
+docker compose -f ./docker/docker-compose-dev.yml up userservice
+```
+
+Again, note that there's no dependency defined, so you might want to start one or two of its dependencies to setup the whole dependency graph.
+
+### Typical Coding Workflow
+
+This is my typical daily coding workflow with this setup:
+
+1. If I was developing `menu-service` earlier, and I am done with it now, I will run
+    
+    ```bash
+    docker compose -f ./docker/docker-compose.yml build menuservice
+    ```
+    
+    to build the build mode container for `menu-service`, and restart it with
+    
+    ```bash
+    docker compose -f ./docker/docker-compose.yml up menuservice
+    ```
+    
+2. If my next task requires me to work with `user-service`, I will then setup the dev mode for `user-service`
+    
+    ```bash
+    docker compose -f ./docker/docker-compose-dev.yml build userservice
+    ```
+    
+    and run it
+    
+    ```bash
+    docker compose -f ./docker/docker-compose-dev.yml up userservice
+    ```
+    
+3. After I make some changes, I might want to restart the service to see the changes
+    
+    ```bash
+    docker compose -f ./docker/docker-compose-dev.yml restart userservice
+    ```
+    
+
+And this is how I utilize Docker Compose in developing microservices.
+
+**Note**: Sometimes you might want to add the flag `-d` in `docker compose up` to run it in detached mode so that you can continue using your terminal.
+
+**Note 2**: I will usually run only the first 2 steps in my terminal, and proceed with using Docker Desktop on the 3rd step since I also need to monitor the logs sometimes.
+
+## Summary
+
+<ImgurImage
+  size="large thumbnail"
+  imgurId="9yBWi93"
+  format="png"
+  alt="Happy Docker"
+  width={400}
+  height={400}
+/>
+
+Docker Compose significantly simplifies the coding workflow when developing microservices. I personally have used it when developing large microservice architecture application and found it to be very useful.

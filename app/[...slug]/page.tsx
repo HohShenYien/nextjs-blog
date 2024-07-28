@@ -109,7 +109,7 @@ export default async function Page({ params }: { params: { slug: string[] } }) {
   })
   const series = post.series ? seriesData.find((s) => s.id === post.series) : undefined
   const seriesPosts = series
-    ? sortPosts(allBlogs.filter((p) => p.series === series.id)).slice(0, 5)
+    ? sortPosts(allBlogs.filter((p) => p.series === series.id)).reverse()
     : []
 
   const Layout = layouts[post.layout || defaultLayout]
